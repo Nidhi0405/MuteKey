@@ -1,0 +1,62 @@
+# Built files
+/build/
+/*.apk
+/*.ap_
+
+# Gradle
+/.gradle/
+/build/
+/local.properties
+.gradle/
+/gradlew
+/gradlew.bat
+
+# IDE files
+/.idea/
+/*.iml
+*.iws
+.idea/
+
+# Log files
+*.log
+
+# Android Studio specific
+.cxx/
+.externalNativeBuild/
+captures/
+outputs/
+.navigation/
+.vscode/
+
+# Keystore files
+*.jks
+*.keystore
+
+# Kotlin/Java specific
+*.class
+*.jar
+*.war
+*.ear
+*.kotlin
+
+# Misc
+.DS_Store
+*.swp
+*.lock
+*.tmp
+
+# Jetpack Compose
+compose-cache/
+
+# Unit test coverage
+*.ec
+
+# Firebase
+google-services.json
+
+# Crashlytics
+fabric.properties
+crashlytics.properties
+
+# Mac/Linux
+*.orig

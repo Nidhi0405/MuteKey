@@ -1,0 +1,33 @@
+package com.bbm.applock.presentation.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import com.bbm.applock.presentation.mainModule.view.InstalledAppListScreen
+import com.bbm.applock.presentation.mainModule.vm.InstalledAppVM
+
+
+@Composable
+fun NavigationGraph(
+    navController: NavHostController,
+    modifier: Modifier
+) {
+    NavHost(
+        navController = navController,
+        startDestination = MainScreens.InstalledAppListScreenRoute,
+        modifier = modifier
+    ) {
+        initAppScreens()
+    }
+}
+
+private fun NavGraphBuilder.initAppScreens() {
+    composable<MainScreens.InstalledAppListScreenRoute> {
+        val vm = hiltViewModel<InstalledAppVM>()
+        InstalledAppListScreen(vm)
+    }
+}
