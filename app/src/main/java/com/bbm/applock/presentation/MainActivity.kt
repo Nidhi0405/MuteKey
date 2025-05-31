@@ -1,9 +1,6 @@
 package com.bbm.applock.presentation
 
-import android.content.Context
-import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -25,7 +22,6 @@ class MainActivity : ComponentActivity() {
 //            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
 //            startActivity(intent)
 //        }
-//        val list = getWeeklyAppUsageStats(this@MainActivity)
 
         setContent {
             AppLockTheme {
@@ -37,18 +33,8 @@ class MainActivity : ComponentActivity() {
                         navController,
                         modifier = Modifier.padding(innerPadding)
                     )
-                    /*LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        items(list.size) {
-                            AppUsageRow(list[it])
-                        }
-                    }*/
                 }
             }
         }
     }
-
 }

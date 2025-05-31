@@ -1,6 +1,5 @@
 package com.bbm.applock.presentation.mainModule.vm
 
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.viewModelScope
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.PermissionInfo
@@ -14,7 +13,10 @@ import com.bbm.applock.presentation.base.BaseVM
 import com.bbm.applock.service.AppBlockAccessibilityService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -31,8 +33,21 @@ class InstalledAppVM @Inject constructor(
         checkPermission()
     }
 
+    private val _searchText = MutableStateFlow("")
+    val searchText: StateFlow<String> = _searchText
+
     private val _permissionInfo = MutableStateFlow<PermissionInfo?>(null)
     val permissionInfo: StateFlow<PermissionInfo?> = _permissionInfo
+
+    private val _installedApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
+
+    val installedAppList = _searchText
+        .combine(_installedApps) { query, apps ->
+            if (query.trim().isBlank()) apps
+            else apps.filter { it.name.contains(query.trim(), ignoreCase = true) }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
+
     fun checkPermission() {
         viewModelScope.launch(dispatchers.io) {
             val permissionInfo =
@@ -51,34 +66,38 @@ class InstalledAppVM @Inject constructor(
         }
     }
 
-    val installedAppList = mutableStateListOf<AppUsageInfo>()
     fun syncAndGetInstalledApps() {
         viewModelScope.launch(dispatchers.io) {
             _state.emit(UiState.Loading)
             val list = syncInstalledAppsUseCase.invoke(7)
-            installedAppList.clear()
-            installedAppList.addAll(list)
+            _installedApps.value = list
             _state.emit(UiState.Success(list, "success"))
         }
     }
 
-    fun addControlledApp(app: AppUsageInfo) {
+    fun onSearchTextChange(value: String) {
+        _searchText.value = value
+    }
+
+    fun onSearchClick() {
+        if (_searchText.value.isEmpty()) return
         viewModelScope.launch {
-            val index = installedAppList.indexOfFirst { it.packageName == app.packageName }
-                .takeIf { it >= 0 } ?: return@launch
-            val controlledApp = app.copy(isControlledApp = true)
-            installedAppList[index] = controlledApp
-            addControlledAppUseCase.invoke(controlledApp)
+            // todo filter on query
         }
     }
 
-    fun removeControlledApp(app: AppUsageInfo) {
+    fun onAddOrRemoveControlledApp(app: AppUsageInfo) {
         viewModelScope.launch {
-            val index = installedAppList.indexOfFirst { it.packageName == app.packageName }
+            val currentList = _installedApps.value.toMutableList()
+            val index = currentList.indexOfFirst { it.packageName == app.packageName }
                 .takeIf { it >= 0 } ?: return@launch
-            val controlledApp = app.copy(isControlledApp = false)
-            installedAppList[index] = controlledApp
-            deleteControlledAppUseCase.invoke(controlledApp)
+            val controlledApp = app.copy(isControlledApp = !app.isControlledApp)
+            currentList[index] = controlledApp
+            _installedApps.value = currentList
+            if (app.isControlledApp)
+                deleteControlledAppUseCase.invoke(controlledApp)
+            else
+                addControlledAppUseCase.invoke(controlledApp)
         }
     }
 }

@@ -1,16 +1,19 @@
 package com.bbm.applock.presentation.mainModule.view
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,11 +21,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,45 +37,49 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
+import coil3.ImageLoader
+import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.PermissionInfo
+import com.bbm.applock.R
 import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.mainModule.vm.InstalledAppVM
 import com.bbm.applock.ui.theme.AppLockTheme
+import com.bbm.applock.util.AppIcon
+import com.bbm.applock.util.AppIconFetcher
 import com.bbm.applock.util.LifeCycleEvent
+import com.bbm.applock.util.MultiDevicePreview
+import com.bbm.applock.util.ScreenSurface
 import com.bbm.applock.util.formatUsageTime
-import com.bbm.applock.util.icon
+import com.bbm.applock.util.noRippleClickable
 
 @Composable
 fun InstalledAppListScreen(vm: InstalledAppVM) {
     val state = vm.state.collectAsState(UiState.Ideal)
     val permission = vm.permissionInfo.collectAsState(null)
     val context = LocalContext.current
+    val searchText = vm.searchText.collectAsState()
+    val appList = vm.installedAppList.collectAsState()
 
     when (state.value) {
         is UiState.Failure<*> -> {
         }
 
         UiState.Ideal -> {
-
         }
 
         UiState.Loading -> {
-
         }
 
         is UiState.Success<*> -> {
-
         }
     }
 
@@ -81,7 +91,30 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
     }
     InstalledAppListScreenContent(
         isLoading = state.value is UiState.Loading,
-        appList = vm.installedAppList,
+        searchText = searchText.value,
+        onTextChange = {
+            vm.onSearchTextChange(it)
+        },
+        onSearchClick = {
+            // nothing to do
+        },
+        appList = appList.value,
+        painter = {
+            val imageLoader = remember(it.packageName) {
+                ImageLoader.Builder(context)
+                    .components {
+                        add(AppIconFetcher.Factory(context))
+                    }
+                    .build()
+            }
+            rememberAsyncImagePainter(
+                model = AppIcon(it.packageName),
+                imageLoader = imageLoader
+            )
+        },
+        onAddOrRemoveControlledApp = {
+            vm.onAddOrRemoveControlledApp(it)
+        },
         permission = permission.value,
         onClickPermission = {
             when (it.permissionType) {
@@ -104,7 +137,10 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
                 PermissionInfo.PermissionType.AUTO_START -> {
                     it.intent?.let {
                         val intent = Intent().apply {
-                            component = ComponentName(it.packageName, it.className)
+                            component = ComponentName(
+                                it.packageName,
+                                it.className
+                            )
                         }
                         context.startActivity(intent)
                     }
@@ -118,24 +154,66 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
 @Composable
 private fun InstalledAppListScreenContent(
     isLoading: Boolean,
+    searchText: String,
+    onTextChange: (String) -> Unit,
+    onSearchClick: () -> Unit,
     appList: List<AppUsageInfo>,
+    painter: @Composable (AppUsageInfo) -> Painter,
+    onAddOrRemoveControlledApp: (AppUsageInfo) -> Unit,
     permission: PermissionInfo?,
     onClickPermission: (PermissionInfo.Permission) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxSize()
-    ) {
+    Column(modifier = modifier.fillMaxSize()) {
+        Spacer(modifier = Modifier.height(12.dp))
         PermissionContent(
             permission,
             click = onClickPermission,
+            modifier = Modifier.padding(horizontal = 18.dp)
         )
+        Spacer(modifier = Modifier.height(12.dp))
+        SearchBar(
+            query = searchText,
+            onTextChange = onTextChange,
+            onSearchClick = onSearchClick,
+            modifier = Modifier.padding(horizontal = 18.dp)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 56.dp, end = 30.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                "Most Used Apps",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 12.sp,
+                )
+            )
+            Text(
+                "Hours/Week",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 12.sp,
+                )
+            )
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(horizontal = 30.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(appList.size) {
-                AppUsageRow(appList[it])
+                AppUsageRow(
+                    appList[it],
+                    painter.invoke(appList[it]),
+                    onAddToControlledApp = {
+                        onAddOrRemoveControlledApp(appList[it])
+                    },
+                    modifier = Modifier
+                )
             }
         }
     }
@@ -144,46 +222,75 @@ private fun InstalledAppListScreenContent(
 @Composable
 private fun PermissionContent(
     permissions: PermissionInfo?,
-    click: (PermissionInfo.Permission) -> Unit
+    click: (PermissionInfo.Permission) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     permissions ?: return
-    for (permission in permissions.permissions) {
-        PermissionRow(
-            title = permission.permissionType.name,
-            enableClick = { click.invoke(permission) },
-            modifier = Modifier.fillMaxWidth()
-        )
+    Column(
+        modifier = modifier
+    ) {
+        for ((index, permission) in permissions.permissions.withIndex()) {
+            PermissionRow(
+                title = permission.permissionType.name,
+                allowClick = { click.invoke(permission) },
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (index != permissions.permissions.lastIndex) {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
     }
 }
 
 @Composable
 private fun PermissionRow(
     title: String,
-    enableClick: () -> Unit,
+    allowClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .wrapContentHeight()
-            .border(width = 2.dp, color = Color.Gray, shape = RoundedCornerShape(24.dp))
-            .padding(horizontal = 12.dp, vertical = 18.dp),
+            .border(
+                width = 1.dp,
+                color = Color(0xFF099ABB),
+                shape = RoundedCornerShape(18.dp)
+            )
+            .padding(
+                horizontal = 10.dp,
+                vertical = 4.dp
+            ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(title)
-        Button(
-            onClick = enableClick,
-            modifier = Modifier
-                .wrapContentWidth()
-                .height(40.dp),
-            content = {
-                Text("Enable")
-            }
+        Spacer(modifier = Modifier.width(2.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography
+                .labelMedium
+                .copy(fontSize = 12.sp),
+            modifier = Modifier.weight(1f)
         )
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .noRippleClickable(allowClick)
+                .background(Color(0xFF099ABB))
+                .wrapContentSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Allow",
+                style = MaterialTheme.typography
+                    .labelMedium
+                    .copy(fontSize = 12.sp, color = Color.White),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+        }
     }
 }
 
-@Preview
+@MultiDevicePreview
 @Composable
 private fun PermissionRowPreview() {
     AppLockTheme {
@@ -198,19 +305,32 @@ private fun PermissionRowPreview() {
 }
 
 
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
-fun AppUsageRow(info: AppUsageInfo) {
+fun AppUsageRow(
+    info: AppUsageInfo,
+    appIcon: Painter,
+    onAddToControlledApp: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
+        modifier = modifier
+            .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
-            painter = rememberAppIcon(
-                packageName = info.packageName,
-                context = LocalContext.current
-            )!!,
+            painter = if (info.isControlledApp) painterResource(R.drawable.ic_check_circle)
+            else painterResource(R.drawable.ic_add_circle),
+            contentDescription = "Add to Controlled App",
+            modifier = Modifier
+                .size(18.dp)
+                .noRippleClickable(onAddToControlledApp)
+        )
+
+        Spacer(Modifier.width(8.dp))
+
+        Image(
+            painter = appIcon,
             contentDescription = info.name,
             modifier = Modifier
                 .size(48.dp)
@@ -219,49 +339,217 @@ fun AppUsageRow(info: AppUsageInfo) {
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = info.name,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W400
+                )
             )
 
-            Text(
-                text = formatUsageTime(info.usageTime),
-                fontSize = 14.sp,
-                color = Color.Gray
+            Spacer(modifier = Modifier.height(6.dp))
+
+            BoxWithConstraints(
+                modifier = Modifier
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+            ) {
+                val oneWeekInMillis = 7 * 24 * 60 * 60 * 1000L
+                val width =
+                    maxWidth * (info.usageTimeInMillis / oneWeekInMillis.toFloat()).coerceIn(0f, 1f)
+                Box(
+                    modifier = Modifier
+                        .width(width)
+                        .fillMaxHeight()
+                        .background(Color(0xFF099ABB))
+                )
+            }
+        }
+        Text(
+            text = formatUsageTime(info.usageTimeInMillis),
+            fontSize = 14.sp,
+            color = Color.Gray
+        )
+    }
+}
+
+@MultiDevicePreview
+@Composable
+private fun AppUsageRowPreview() {
+    AppLockTheme {
+        Column {
+            AppUsageRow(
+                AppUsageInfo(
+                    name = "Instagram",
+                    packageName = "com.media.instagra",
+                    usageTimeInMillis = 22,
+                    isControlledApp = false
+                ),
+                appIcon = painterResource(R.drawable.ic_launcher_background),
+                onAddToControlledApp = {},
+                modifier = Modifier.padding(12.dp)
+            )
+            AppUsageRow(
+                AppUsageInfo(
+                    name = "Youtube",
+                    packageName = "com.media.instagra",
+                    usageTimeInMillis = 22,
+                    isControlledApp = true
+                ),
+                appIcon = painterResource(R.drawable.ic_launcher_background),
+                onAddToControlledApp = {},
+                modifier = Modifier.padding(12.dp)
             )
         }
+
     }
 }
 
 @Composable
-fun rememberAppIcon(
-    packageName: String,
-    context: Context = LocalContext.current
-): Painter? {
-    val cachedBitmap = remember { packageName.icon }
+fun SearchBar(
+    query: String,
+    onTextChange: (String) -> Unit,
+    onSearchClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .height(32.dp)
+            .height(82.dp),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(Color.White)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_search),
+                contentDescription = "Search",
+                modifier = Modifier.size(16.dp)
+            )
 
-    return remember(cachedBitmap) {
-        if (cachedBitmap != null) {
-            BitmapPainter(cachedBitmap.asImageBitmap())
-        } else {
-            try {
-                val drawable = context.packageManager.getApplicationIcon(packageName)
-                val bmp = drawable.toBitmap()
-                packageName.icon = bmp
-                BitmapPainter(bmp.asImageBitmap())
-            } catch (e: Exception) {
-                null
+            Spacer(Modifier.width(8.dp))
+
+            BasicTextField(
+                value = query,
+                onValueChange = onTextChange,
+                textStyle = MaterialTheme.typography
+                    .labelMedium
+                    .copy(fontSize = 14.sp, fontWeight = FontWeight.W200),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .weight(1f),
+            ) { innerTextField ->
+                if (query.isEmpty())
+                    Text(
+                        "Search",
+                        style = MaterialTheme.typography
+                            .labelMedium
+                            .copy(fontSize = 14.sp, fontWeight = FontWeight.W200)
+                    )
+                innerTextField()
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .noRippleClickable(onClick = onSearchClick)
+                    .background(Color(0xFF099ABB))
+                    .wrapContentSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Search",
+                    style = MaterialTheme.typography
+                        .labelMedium
+                        .copy(fontSize = 10.sp, color = Color.White),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
             }
         }
     }
 }
 
-@Preview
+@MultiDevicePreview
+@Composable
+private fun SearchBarPreview() {
+    AppLockTheme {
+        SearchBar(
+            "Instagram",
+            {},
+            {},
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@MultiDevicePreview
 @Composable
 private fun InstalledAppListScreenPreview() {
     AppLockTheme {
-
+        ScreenSurface {
+            InstalledAppListScreenContent(
+                isLoading = false,
+                searchText = "Instagram",
+                onTextChange = {},
+                onSearchClick = {},
+                appList = listOf(
+                    AppUsageInfo(
+                        name = "Instagram",
+                        packageName = "com.media.instagra",
+                        usageTimeInMillis = 99990000,
+                        isControlledApp = false
+                    ),
+                    AppUsageInfo(
+                        name = "Youtube",
+                        packageName = "com.media.instagra",
+                        usageTimeInMillis = 90000000,
+                        isControlledApp = true
+                    ),
+                    AppUsageInfo(
+                        name = "Gmail",
+                        packageName = "com.media.instagra",
+                        usageTimeInMillis = 40000000,
+                        isControlledApp = false
+                    )
+                ),
+                onAddOrRemoveControlledApp = {},
+                permission = PermissionInfo(
+                    permissions = listOf(
+                        PermissionInfo.Permission(
+                            permissionType = PermissionInfo.PermissionType.ACCESSIBILITY,
+                            intent = null,
+                            isGranted = true,
+                            isOptional = false
+                        ),
+                        PermissionInfo.Permission(
+                            permissionType = PermissionInfo.PermissionType.NOTIFICATION,
+                            intent = null,
+                            isGranted = true,
+                            isOptional = false
+                        ),
+                        PermissionInfo.Permission(
+                            permissionType = PermissionInfo.PermissionType.USAGE,
+                            intent = null,
+                            isGranted = true,
+                            isOptional = false
+                        ),
+                    ),
+                    allGranted = false,
+                    shouldAskPermission = true
+                ),
+                painter = { painterResource(R.drawable.ic_launcher_background) },
+                onClickPermission = {},
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }

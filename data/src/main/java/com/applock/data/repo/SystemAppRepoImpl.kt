@@ -3,7 +3,6 @@ package com.applock.data.repo
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Context.USAGE_STATS_SERVICE
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
@@ -18,14 +17,16 @@ class SystemAppRepoImpl @Inject constructor(
             val pm = context.packageManager
             val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
 
-            return apps.filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 }
-                .map {
-                    AppUsageInfo(
-                        name = pm.getApplicationLabel(it).toString(),
-                        packageName = it.packageName,
-                        usageTime = 0L
-                    )
-                }
+            return apps.filter {
+                val launchIntent = pm.getLaunchIntentForPackage(it.packageName)
+                launchIntent != null
+            }.map {
+                AppUsageInfo(
+                    name = pm.getApplicationLabel(it).toString(),
+                    packageName = it.packageName,
+                    usageTimeInMillis = 0L
+                )
+            }
         } catch (e: Exception) {
             e.stackTraceToString().logE()
             return emptyList()
@@ -41,7 +42,7 @@ class SystemAppRepoImpl @Inject constructor(
         val startTime = endTime - days * 24 * 60 * 60 * 1000L
 
         val usageStatsList = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_YEARLY, // still use INTERVAL_DAILY for better granularity
+            UsageStatsManager.INTERVAL_DAILY, // still use INTERVAL_DAILY for better granularity
             startTime,
             endTime
         )
@@ -59,9 +60,10 @@ class SystemAppRepoImpl @Inject constructor(
         usageMap.forEach { (pkg, totalUsage) ->
             try {
                 val appInfo = pm.getApplicationInfo(pkg, 0)
-                if (totalUsage >= 0 && (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0) {
-                    val appName =
-                        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+                val launchIntent = pm.getLaunchIntentForPackage(pkg)
+
+                if (launchIntent != null && totalUsage >= 0) {
+                    val appName = pm.getApplicationLabel(appInfo).toString()
                     appUsageList.add(AppUsageInfo(appName, pkg, totalUsage))
                 }
             } catch (e: Exception) {

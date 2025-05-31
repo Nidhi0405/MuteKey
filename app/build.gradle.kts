@@ -76,6 +76,9 @@ dependencies {
     implementation(libs.logging.interceptor)
     implementation(libs.converter.gson)
 
+    //image loading
+    implementation(libs.coil.compose)
+
     //kotlin
     implementation(libs.kotlin.stdlib.jdk7)
     implementation(libs.kotlinx.coroutines.android)

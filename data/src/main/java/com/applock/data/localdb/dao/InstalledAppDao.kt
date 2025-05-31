@@ -12,7 +12,7 @@ interface InstalledAppDao {
     @Query("SELECT * FROM InstalledAppInfoEntity")
     suspend fun getStoredApp(): List<InstalledAppInfoEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun storeInstalledApps(apps: List<InstalledAppInfoEntity>)
 
     @Query("DELETE FROM InstalledAppInfoEntity WHERE packageName IN (:packages)")

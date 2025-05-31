@@ -15,13 +15,24 @@ class SyncInstalledAppsUseCase @Inject constructor(
         val localApps = localAppRepo.getStoredApp()
 
         val sysInstalledPackages = sysApps.map { it.packageName }.toSet()
-
         val tobeDeleted = localApps.filter { it.packageName !in sysInstalledPackages }
 
-        localAppRepo.deleteUninstalledApps(tobeDeleted)
+        if (tobeDeleted.isNotEmpty()) {
+            localAppRepo.deleteUninstalledApps(tobeDeleted)
+        }
 
         localAppRepo.storeInstalledApps(sysApps)
 
-        return systemAppRepo.getInstalledAppsWithUsage(days)
+        val appsWithUsage = systemAppRepo.getInstalledAppsWithUsage(days)
+
+        val controlledAppPackages = localApps
+            .asSequence()
+            .filter { it.isControlledApp }
+            .map { it.packageName }
+            .toSet()
+
+        return appsWithUsage.map { appUsageInfo ->
+            appUsageInfo.copy(isControlledApp = appUsageInfo.packageName in controlledAppPackages)
+        }
     }
 }

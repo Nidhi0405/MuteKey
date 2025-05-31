@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.bbm.applock.presentation.mainModule.view.InstalledAppListScreen
 import com.bbm.applock.presentation.mainModule.vm.InstalledAppVM
+import com.bbm.applock.util.ScreenSurface
 
 
 @Composable
@@ -28,6 +29,8 @@ fun NavigationGraph(
 private fun NavGraphBuilder.initAppScreens() {
     composable<MainScreens.InstalledAppListScreenRoute> {
         val vm = hiltViewModel<InstalledAppVM>()
-        InstalledAppListScreen(vm)
+        ScreenSurface {
+            InstalledAppListScreen(vm)
+        }
     }
 }

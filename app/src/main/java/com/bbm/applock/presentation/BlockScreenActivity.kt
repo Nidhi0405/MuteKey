@@ -11,20 +11,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
 import com.bbm.applock.ui.theme.AppLockTheme
+import com.bbm.applock.util.ScreenSurface
 
 class BlockScreenActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             AppLockTheme {
-                Box(
-                    modifier = Modifier.Companion.fillMaxSize(),
-                    contentAlignment = Alignment.Companion.Center
-                ) {
-                    Text(
-                        "App is Locked",
-                        fontSize = 24.sp
-                    )
+                ScreenSurface {
+                    Box(
+                        modifier = Modifier.Companion.fillMaxSize(),
+                        contentAlignment = Alignment.Companion.Center
+                    ) {
+                        Text(
+                            "Ghar bhegu thaa ne",
+                            fontSize = 24.sp
+                        )
+                    }
                 }
             }
         }

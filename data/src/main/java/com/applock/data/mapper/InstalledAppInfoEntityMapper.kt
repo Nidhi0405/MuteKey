@@ -7,7 +7,7 @@ fun InstalledAppInfoEntity.toDomain(): AppUsageInfo {
     return AppUsageInfo(
         name = name,
         packageName = packageName,
-        usageTime = 0L,
+        usageTimeInMillis = 0L,
         isControlledApp = isControlledApp
     )
 }
