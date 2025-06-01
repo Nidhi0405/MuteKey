@@ -24,7 +24,7 @@ class BlockScreenActivity : ComponentActivity() {
                         contentAlignment = Alignment.Companion.Center
                     ) {
                         Text(
-                            "Ghar bhegu thaa ne",
+                            "App is currently blocked",
                             fontSize = 24.sp
                         )
                     }

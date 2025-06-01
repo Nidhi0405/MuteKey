@@ -1,4 +1,9 @@
 <resources>
     <string name="app_name">AppLock</string>
-    <string name="accessibility_description">App Lock description\n</string>
+    <string name="accessibility_description">AppLock requires Accessibility permission only to enable usage control features — such as locking selected apps after usage limits are reached.\nWe do not track, record, or monitor your activity or content. This permission is used strictly to detect when specific apps are opened, so we can help you manage screen time effectively.\nThis complies with Google Play policies and respects your privacy fully.</string>
+
+
+    <string name="allow">Allow</string>
+    <string name="hint_search">Search</string>
+    <string name="search">Search</string>
 </resources>

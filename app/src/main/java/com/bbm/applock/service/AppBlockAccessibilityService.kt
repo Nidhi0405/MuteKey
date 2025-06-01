@@ -4,7 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import com.applock.core.logE
-import com.applock.domain.usecase.SyncInstalledAppsUseCase
+import com.applock.domain.usecase.IsCurrentlyBlockedAppUseCase
 import com.bbm.applock.hiltmodule.AppBlockAccessibilityModule
 import com.bbm.applock.presentation.BlockScreenActivity
 import dagger.hilt.android.EntryPointAccessors
@@ -18,21 +18,20 @@ import kotlinx.coroutines.withContext
  * todo with schedule time conditions
  * */
 class AppBlockAccessibilityService : AccessibilityService() {
-    private val useCase: SyncInstalledAppsUseCase by lazy {
+    private val isCurrentlyBlockedApp: IsCurrentlyBlockedAppUseCase by lazy {
         EntryPointAccessors.fromApplication(
             applicationContext,
             AppBlockAccessibilityModule::class.java
-        ).syncInstalledAppsUseCase()
+        ).isCurrentlyBlockedAppUseCase()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         try {
             if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 val packageName = event.packageName?.toString()
+                "Service $packageName".logE()
                 CoroutineScope(Dispatchers.IO).launch {
-                    if (useCase.invoke(7)
-                            .any { it.packageName == packageName && it.isControlledApp }
-                    ) {
+                    if (isCurrentlyBlockedApp.invoke(packageName.orEmpty())) {
                         withContext(Dispatchers.Main) {
                             openBlockScreen()
                         }

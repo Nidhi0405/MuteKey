@@ -17,4 +17,7 @@ interface ControlledAppDao {
 
     @Delete
     suspend fun deleteControlledApp(app: InstalledAppInfoEntity)
+
+    @Query("SELECT * FROM InstalledAppInfoEntity WHERE packageName = :packageName")
+    suspend fun getInstalledAppInfo(packageName: String): InstalledAppInfoEntity?
 }

@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -279,7 +280,7 @@ private fun PermissionRow(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Allow",
+                text = stringResource(R.string.allow),
                 style = MaterialTheme.typography
                     .labelMedium
                     .copy(fontSize = 12.sp, color = Color.White),
@@ -449,7 +450,7 @@ fun SearchBar(
             ) { innerTextField ->
                 if (query.isEmpty())
                     Text(
-                        "Search",
+                        stringResource(R.string.hint_search),
                         style = MaterialTheme.typography
                             .labelMedium
                             .copy(fontSize = 14.sp, fontWeight = FontWeight.W200)
@@ -466,7 +467,7 @@ fun SearchBar(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Search",
+                    text = stringResource(R.string.search),
                     style = MaterialTheme.typography
                         .labelMedium
                         .copy(fontSize = 10.sp, color = Color.White),

@@ -35,4 +35,8 @@ class LocalAppRepoImpl @Inject constructor(
     override suspend fun deleteControlledApp(app: AppUsageInfo) {
         controlledAppDao.deleteControlledApp(app = app.toInstalledAppInfoEntity())
     }
+
+    override suspend fun isCurrentlyBlockedApp(packageName: String): Boolean {
+        return controlledAppDao.getInstalledAppInfo(packageName)?.isControlledApp == true
+    }
 }

@@ -9,4 +9,5 @@ interface LocalAppRepo {
     suspend fun getControlledApps(): List<AppUsageInfo>
     suspend fun storeControlledApps(appUsageInfo: AppUsageInfo)
     suspend fun deleteControlledApp(app: AppUsageInfo)
+    suspend fun isCurrentlyBlockedApp(packageName: String): Boolean
 }
