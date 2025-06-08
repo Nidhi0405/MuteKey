@@ -7,8 +7,9 @@ import com.applock.domain.model.Schedule
 import com.applock.domain.repo.ScheduleRepo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
-class ScheduleRepoImpl(
+class ScheduleRepoImpl @Inject constructor(
     private val scheduleDao: ScheduleDao
 ) : ScheduleRepo {
     override suspend fun getAllSchedules(): Flow<List<Schedule>> {

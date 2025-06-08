@@ -60,6 +60,7 @@ class InstalledAppVM @Inject constructor(
                 }
 
                 else -> {
+                    syncAndGetInstalledApps()
                     _permissionInfo.value =
                         permissionInfo.copy(permissionInfo.permissions.filterNot { it.isGranted })
                 }
