@@ -1,4 +1,4 @@
-package com.bbm.applock.presentation.mainModule.vm
+package com.bbm.applock.presentation.installedControlledAppsModule.vm
 
 import androidx.lifecycle.viewModelScope
 import com.applock.core.logE

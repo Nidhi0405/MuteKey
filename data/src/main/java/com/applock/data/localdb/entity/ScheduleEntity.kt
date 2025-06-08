@@ -81,31 +81,46 @@ data class BlockedAppEntity(
 
 
 /**
- * Mapper classes
+ * Mapper classes for Query
  * */
-data class ScheduleWithDates(
-    @Embedded val schedule: ScheduleEntity,
-    @Relation(
-        parentColumn = "id",
-        entityColumn = "scheduleId"
-    )
-    val dates: List<DateWithTimeSlots>
+data class BlockedAppItem(
+    val id: Int,
+    val name: String,
+    val packageName: String,
+    val timeSlotId: Int
 )
 
-data class DateWithTimeSlots(
-    @Embedded val date: DateEntity,
-    @Relation(
-        parentColumn = "id",
-        entityColumn = "dateId"
-    )
-    val timeSlots: List<TimeSlotWithApps>
-)
-
-data class TimeSlotWithApps(
-    @Embedded val timeSlot: TimeSlotEntity,
+data class TimeSlotItem(
+    val id: Int,
+    val startTime: Long,
+    val endTime: Long,
+    val dateId: Int,
     @Relation(
         parentColumn = "id",
         entityColumn = "timeSlotId"
     )
-    val apps: List<BlockedAppEntity>
+    val blockedApps: List<BlockedAppEntity>
+)
+
+data class DateItem(
+    val id: Int,
+    val scheduleId: Int,
+    val epochDate: Long,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "dateId",
+        entity = TimeSlotEntity::class
+    )
+    val timeSlots: List<TimeSlotItem>
+)
+
+data class ScheduleWithDates(
+    @Embedded
+    val schedule: ScheduleEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "scheduleId",
+        entity = DateEntity::class
+    )
+    val dates: List<DateItem>
 )

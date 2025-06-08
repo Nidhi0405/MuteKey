@@ -29,7 +29,7 @@ class AppBlockAccessibilityService : AccessibilityService() {
         try {
             if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 val packageName = event.packageName?.toString()
-                "Service $packageName".logE()
+                "AppBlockAccessibilityService: $packageName".logE()
                 CoroutineScope(Dispatchers.IO).launch {
                     if (isCurrentlyBlockedApp.invoke(packageName.orEmpty())) {
                         withContext(Dispatchers.Main) {

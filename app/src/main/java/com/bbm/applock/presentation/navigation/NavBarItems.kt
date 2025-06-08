@@ -15,20 +15,20 @@ sealed class BottomNavItem<T : Any>(
         R.string.nav_item_apps
     )
 
-    data object Schedule : BottomNavItem<MainScreens.ScheduleScreen>(
-        MainScreens.ScheduleScreen,
+    data object Schedule : BottomNavItem<MainScreens.ScheduleScreenRoute>(
+        MainScreens.ScheduleScreenRoute,
         R.drawable.ic_schedule,
         R.string.nav_item_schedule
     )
 
-    data object Analytics : BottomNavItem<MainScreens.AnalyticsScreen>(
-        MainScreens.AnalyticsScreen,
+    data object Analytics : BottomNavItem<MainScreens.AnalyticsScreenRoute>(
+        MainScreens.AnalyticsScreenRoute,
         R.drawable.ic_analytics,
         R.string.nav_item_analytics
     )
 
-    data object Profile : BottomNavItem<MainScreens.ProfileScreen>(
-        MainScreens.ProfileScreen,
+    data object Profile : BottomNavItem<MainScreens.ProfileScreenRoute>(
+        MainScreens.ProfileScreenRoute,
         R.drawable.ic_profile,
         R.string.nav_item_profile
     )

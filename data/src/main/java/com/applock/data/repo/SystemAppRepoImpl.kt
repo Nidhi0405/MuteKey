@@ -6,6 +6,7 @@ import android.content.Context.USAGE_STATS_SERVICE
 import android.content.pm.PackageManager
 import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
+import com.applock.domain.model.TotalScreenTime
 import com.applock.domain.repo.SystemAppRepo
 import javax.inject.Inject
 
@@ -16,15 +17,16 @@ class SystemAppRepoImpl @Inject constructor(
         try {
             val pm = context.packageManager
             val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-
-            return apps.filter {
-                val launchIntent = pm.getLaunchIntentForPackage(it.packageName)
-                launchIntent != null
+            return apps.filter { appInfo ->
+                val launchIntent = pm.getLaunchIntentForPackage(appInfo.packageName)
+                appInfo.packageName != context.packageName // to skip our app
+                        && launchIntent != null
             }.map {
                 AppUsageInfo(
                     name = pm.getApplicationLabel(it).toString(),
                     packageName = it.packageName,
-                    usageTimeInMillis = 0L
+                    usageTimeInMillis = 0L,
+                    totalScreenTime = null
                 )
             }
         } catch (e: Exception) {
@@ -56,15 +58,25 @@ class SystemAppRepoImpl @Inject constructor(
         }
 
         val appUsageList = mutableListOf<AppUsageInfo>()
-
+        val totalScreenTime = TotalScreenTime(0)
         usageMap.forEach { (pkg, totalUsage) ->
             try {
                 val appInfo = pm.getApplicationInfo(pkg, 0)
                 val launchIntent = pm.getLaunchIntentForPackage(pkg)
-
-                if (launchIntent != null && totalUsage >= 0) {
+                totalScreenTime.timeInMillis += totalUsage
+                if (pkg != context.packageName // to skip our app
+                    && launchIntent != null
+                    && totalUsage >= 0
+                ) {
                     val appName = pm.getApplicationLabel(appInfo).toString()
-                    appUsageList.add(AppUsageInfo(appName, pkg, totalUsage))
+                    appUsageList.add(
+                        AppUsageInfo(
+                            appName,
+                            pkg,
+                            totalUsage,
+                            totalScreenTime = totalScreenTime
+                        )
+                    )
                 }
             } catch (e: Exception) {
                 e.stackTraceToString().logE()

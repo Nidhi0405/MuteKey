@@ -40,7 +40,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 ) { innerPadding ->
-                    val navController = navController
                     NavigationGraph(
                         navController,
                         modifier = Modifier.padding(innerPadding)
