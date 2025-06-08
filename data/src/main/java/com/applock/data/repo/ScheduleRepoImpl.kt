@@ -12,7 +12,7 @@ import javax.inject.Inject
 class ScheduleRepoImpl @Inject constructor(
     private val scheduleDao: ScheduleDao
 ) : ScheduleRepo {
-    override suspend fun getAllSchedules(): Flow<List<Schedule>> {
+    override fun getAllSchedules(): Flow<List<Schedule>> {
         return scheduleDao.getAllSchedules().map { list ->
             list.map { item ->
                 item.toDomain()
@@ -26,5 +26,9 @@ class ScheduleRepoImpl @Inject constructor(
 
     override suspend fun updateActiveStatus(schedule: Schedule) {
         scheduleDao.updateActiveStatus(scheduleId = schedule.id, isActive = schedule.isActive)
+    }
+
+    override suspend fun deleteSchedule(schedule: Schedule) {
+        scheduleDao.deleteSchedule(schedule.toScheduleEntity())
     }
 }

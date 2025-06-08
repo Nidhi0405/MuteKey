@@ -1,6 +1,7 @@
 package com.applock.data.localdb.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy.Companion.IGNORE
 import androidx.room.Query
@@ -19,6 +20,9 @@ interface ScheduleDao {
 
     @Query("UPDATE schedule_table SET isActive = :isActive WHERE id = :scheduleId")
     suspend fun updateActiveStatus(scheduleId: Int, isActive: Boolean)
+
+    @Delete
+    suspend fun deleteSchedule(schedule: ScheduleEntity)
 
     @Transaction
     @Query("SELECT * FROM schedule_table WHERE id = :scheduleId")

@@ -5,7 +5,8 @@ import kotlinx.coroutines.flow.Flow
 
 
 interface ScheduleRepo {
-    suspend fun getAllSchedules(): Flow<List<Schedule>>
+    fun getAllSchedules(): Flow<List<Schedule>>
     suspend fun createSchedule(schedule: Schedule)
     suspend fun updateActiveStatus(schedule: Schedule)
+    suspend fun deleteSchedule(schedule: Schedule)
 }

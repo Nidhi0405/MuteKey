@@ -63,6 +63,10 @@ fun ScheduleScreen(
 ) {
     val state = vm.state.collectAsState()
     val scheduleList = vm.schedulesList.collectAsState()
+    val scheduleSettingsDialog = vm.isScheduleSettingsDialogVisible.collectAsState()
+    val newScheduleName = vm.scheduleName.collectAsState()
+    val isCreateScheduleDialogVisible = vm.isCreateScheduleDialogVisible.collectAsState()
+
     when (state.value) {
         is UiState.Failure<*> -> {
 
@@ -98,20 +102,29 @@ fun ScheduleScreen(
             vm.toggleSchedule(it)
         },
         onScheduleSettingsClick = {
-            vm.onSettingsClick(it)
+            vm.toggleScheduleSettingsDialog(it)
+        },
+        onScheduleDeleteClick = {
+            vm.toggleScheduleSettingsDialog(null)
+            vm.deleteSchedule(it)
+        },
+        onScheduleAnalyticsClick = {
+            vm.toggleScheduleSettingsDialog(null)
         },
         onScheduleClick = {
             onScheduleClick.invoke(it)
         },
-        onEditScheduleName = {
-            // TODO from edit dialog
+        onScheduleSettingsDismissClick = {
+            vm.toggleScheduleSettingsDialog(null)
         },
         onNewScheduleNameChange = {
             vm.onNewScheduleNameChange(it)
         },
-        newScheduleName = vm.scheduleName.collectAsState().value,
+        isScheduleSettingsDialogVisible = scheduleSettingsDialog.value.first,
+        selectedScheduleForSetting = scheduleSettingsDialog.value.second,
+        newScheduleName = newScheduleName.value,
         schedules = scheduleList.value,
-        isCreateScheduleDialogVisible = vm.isCreateScheduleDialogVisible.collectAsState().value
+        isCreateScheduleDialogVisible = isCreateScheduleDialogVisible.value
     )
 }
 
@@ -122,9 +135,13 @@ private fun ScheduleScreenContent(
     onCreateScheduleClick: () -> Unit,
     onToggleSchedule: (schedule: Schedule) -> Unit,
     onScheduleSettingsClick: (schedule: Schedule) -> Unit,
+    onScheduleSettingsDismissClick: () -> Unit,
+    onScheduleDeleteClick: (Schedule) -> Unit,
+    onScheduleAnalyticsClick: (Schedule) -> Unit,
     onScheduleClick: (schedule: Schedule) -> Unit,
-    onEditScheduleName: (schedule: Schedule) -> Unit,
     isCreateScheduleDialogVisible: Boolean,
+    isScheduleSettingsDialogVisible: Boolean,
+    selectedScheduleForSetting: Schedule?,
     newScheduleName: String,
     onNewScheduleNameChange: (String) -> Unit,
     schedules: List<Schedule>,
@@ -136,6 +153,18 @@ private fun ScheduleScreenContent(
             onCreateClick = onCreateScheduleClick,
             onDismiss = onNewScheduleDismiss,
             onTextChange = onNewScheduleNameChange
+        )
+    }
+    if (isScheduleSettingsDialogVisible && selectedScheduleForSetting != null) {
+        ScheduleSettingsDialog(
+            schedule = selectedScheduleForSetting,
+            onDeleteClick = {
+                onScheduleDeleteClick.invoke(selectedScheduleForSetting)
+            },
+            onCheckAnalyticsClick = {
+                onScheduleAnalyticsClick.invoke(selectedScheduleForSetting)
+            },
+            onDismiss = onScheduleSettingsDismissClick
         )
     }
     val horizontalPadding = 14.dp
@@ -584,12 +613,17 @@ fun ScheduleScreenContentPreview() {
                 onCreateScheduleClick = {},
                 onScheduleSettingsClick = {},
                 onScheduleClick = {},
-                onEditScheduleName = {},
+                onScheduleSettingsDismissClick = {},
                 onNewScheduleNameChange = {},
                 newScheduleName = "",
                 onNewScheduleDismiss = {
                     isDialogVisible.value = false
                 },
+                onScheduleDeleteClick = {},
+                onScheduleAnalyticsClick = {},
+                isScheduleSettingsDialogVisible = false,
+                selectedScheduleForSetting = null,
+                modifier = Modifier,
                 schedules = listOf(
                     Schedule(
                         name = "Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time",

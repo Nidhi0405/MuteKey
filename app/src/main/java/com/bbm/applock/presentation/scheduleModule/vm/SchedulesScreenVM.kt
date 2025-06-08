@@ -5,6 +5,7 @@ import com.applock.core.logE
 import com.applock.core.logI
 import com.applock.domain.model.Schedule
 import com.applock.domain.usecase.CreateScheduleUseCase
+import com.applock.domain.usecase.DeleteScheduleUseCase
 import com.applock.domain.usecase.GetAllSchedulesUseCase
 import com.applock.domain.usecase.ToggleScheduleUseCase
 import com.bbm.applock.dispatcher.CoroutineDispatcherProvider
@@ -21,6 +22,7 @@ class SchedulesScreenVM @Inject constructor(
     private val dispatcher: CoroutineDispatcherProvider,
     private val getAllSchedulesUseCase: GetAllSchedulesUseCase,
     private val createScheduleUseCase: CreateScheduleUseCase,
+    private val deleteScheduleUseCase: DeleteScheduleUseCase,
     private val toggleScheduleUseCase: ToggleScheduleUseCase,
 ) : BaseVM() {
 
@@ -30,8 +32,10 @@ class SchedulesScreenVM @Inject constructor(
     private val _isCreateScheduleDialogVisible = MutableStateFlow(false)
     val isCreateScheduleDialogVisible: StateFlow<Boolean> = _isCreateScheduleDialogVisible
 
-    private val _isScheduleSettingsDialogVisible = MutableStateFlow(false)
-    val isScheduleSettingsDialogVisible: StateFlow<Boolean> = _isScheduleSettingsDialogVisible
+    private val _isScheduleSettingsDialogVisible =
+        MutableStateFlow<Pair<Boolean, Schedule?>>(false to null)
+    val isScheduleSettingsDialogVisible: StateFlow<Pair<Boolean, Schedule?>> =
+        _isScheduleSettingsDialogVisible
 
     private val _scheduleName = MutableStateFlow("")
     val scheduleName: StateFlow<String> = _scheduleName
@@ -89,7 +93,24 @@ class SchedulesScreenVM @Inject constructor(
         _scheduleName.value = name
     }
 
-    fun onSettingsClick(schedule: Schedule) {
+    fun deleteSchedule(schedule: Schedule) {
+        viewModelScope.launch(dispatcher.io) {
+            deleteScheduleUseCase.invoke(schedule).fold(
+                onSuccess = {
+                    "Schedule ${schedule.name} toggled".logI()
+                },
+                onFailure = {
+                    it.stackTraceToString().logE()
+                }
+            )
+        }
+    }
 
+    fun toggleScheduleSettingsDialog(schedule: Schedule?) {
+        if (!_isScheduleSettingsDialogVisible.value.first) {
+            _isScheduleSettingsDialogVisible.value = true to schedule
+        } else {
+            _isScheduleSettingsDialogVisible.value = false to null
+        }
     }
 }
