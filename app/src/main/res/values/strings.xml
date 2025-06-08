@@ -6,4 +6,8 @@
     <string name="allow">Allow</string>
     <string name="hint_search">Search</string>
     <string name="search">Search</string>
+    <string name="nav_item_apps">Apps</string>
+    <string name="nav_item_schedule">Schedule</string>
+    <string name="nav_item_analytics">Analytics</string>
+    <string name="nav_item_profile">Profile</string>
 </resources>

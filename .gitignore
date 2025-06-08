@@ -13,6 +13,8 @@
 
 # IDE files
 /.idea/
+.idea/
+.idea/*
 /*.iml
 *.iws
 .idea/
