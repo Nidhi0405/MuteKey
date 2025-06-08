@@ -14,4 +14,8 @@
     <string name="btn_create_schedule">Create Schedule</string>
     <string name="btn_delete_schedule">Delete</string>
     <string name="btn_check_analytics">Check Analytics</string>
+    <string name="nav_item_apps">Apps</string>
+    <string name="nav_item_schedule">Schedule</string>
+    <string name="nav_item_analytics">Analytics</string>
+    <string name="nav_item_profile">Profile</string>
 </resources>

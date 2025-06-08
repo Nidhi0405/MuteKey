@@ -9,10 +9,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.bbm.applock.R
+import com.bbm.applock.presentation.analyticsModule.view.AnalyticsScreen
 import com.bbm.applock.presentation.mainModule.view.InstalledAppListScreen
 import com.bbm.applock.presentation.mainModule.view.ScheduleScreen
 import com.bbm.applock.presentation.mainModule.vm.InstalledAppVM
 import com.bbm.applock.presentation.mainModule.vm.SchedulesScreenVM
+import com.bbm.applock.presentation.profileModule.view.ProfileScreen
 import com.bbm.applock.util.ScreenSurface
 
 
@@ -37,8 +39,7 @@ private fun NavGraphBuilder.initAppScreens() {
             InstalledAppListScreen(vm)
         }
     }
-
-    composable<MainScreens.ScheduleScreenRoute> {
+    composable<MainScreens.ScheduleScreen> {
         val vm = hiltViewModel<SchedulesScreenVM>()
         ScreenSurface(
             painter = painterResource(R.drawable.bg_schedule_screen)
@@ -46,4 +47,17 @@ private fun NavGraphBuilder.initAppScreens() {
             ScheduleScreen(vm)
         }
     }
+
+    composable<MainScreens.AnalyticsScreen> {
+        ScreenSurface {
+            AnalyticsScreen()
+        }
+    }
+
+    composable<MainScreens.ProfileScreen> {
+        ScreenSurface {
+            ProfileScreen()
+        }
+    }
 }
+
