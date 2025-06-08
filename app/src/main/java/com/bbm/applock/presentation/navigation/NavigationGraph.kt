@@ -1,22 +1,21 @@
 package com.bbm.applock.presentation.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
+import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.view.AnalyticsScreen
-import com.bbm.applock.presentation.mainModule.view.InstalledAppListScreen
-import com.bbm.applock.presentation.mainModule.vm.InstalledAppVM
+import com.bbm.applock.presentation.installedControlledAppsModule.view.InstalledAppListScreen
+import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAppVM
 import com.bbm.applock.presentation.profileModule.view.ProfileScreen
 import com.bbm.applock.presentation.scheduleModule.view.ScheduleScreen
+import com.bbm.applock.presentation.scheduleModule.vm.SchedulesScreenVM
 import com.bbm.applock.util.ScreenSurface
 
 
@@ -30,32 +29,54 @@ fun NavigationGraph(
         startDestination = MainScreens.InstalledAppListScreenRoute,
         modifier = modifier
     ) {
-        initAppScreens()
+        initAppScreens(navController)
     }
 }
 
-private fun NavGraphBuilder.initAppScreens() {
+private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
     composable<MainScreens.InstalledAppListScreenRoute> {
         val vm = hiltViewModel<InstalledAppVM>()
         ScreenSurface {
             InstalledAppListScreen(vm)
         }
     }
-    composable<MainScreens.ScheduleScreen> {
-        ScreenSurface {
-            ScheduleScreen()
+
+    composable<MainScreens.ScheduleScreenRoute> {
+        val vm = hiltViewModel<SchedulesScreenVM>()
+        ScreenSurface(
+            painter = painterResource(R.drawable.bg_schedule_screen)
+        ) {
+            ScheduleScreen(
+                vm,
+                onScheduleClick = {
+                    navController.navigate(
+                        MainScreens.ScheduleDetailScreenRoute(
+                            it.id,
+                            it.name,
+                            it.isActive
+                        )
+                    )
+                }
+            )
         }
     }
 
-    composable<MainScreens.AnalyticsScreen> {
+    composable<MainScreens.AnalyticsScreenRoute> {
         ScreenSurface {
             AnalyticsScreen()
         }
     }
 
-    composable<MainScreens.ProfileScreen> {
+    composable<MainScreens.ProfileScreenRoute> {
         ScreenSurface {
             ProfileScreen()
+        }
+    }
+
+    composable<MainScreens.ScheduleDetailScreenRoute> {
+        val schedule = it.toRoute<MainScreens.ScheduleDetailScreenRoute>()
+        ScreenSurface {
+            // TODO
         }
     }
 }

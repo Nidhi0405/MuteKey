@@ -2,9 +2,11 @@ package com.bbm.applock.hiltmodule
 
 import com.applock.data.repo.LocalAppRepoImpl
 import com.applock.data.repo.PermissionRepoImpl
+import com.applock.data.repo.ScheduleRepoImpl
 import com.applock.data.repo.SystemAppRepoImpl
 import com.applock.domain.repo.LocalAppRepo
 import com.applock.domain.repo.PermissionRepo
+import com.applock.domain.repo.ScheduleRepo
 import com.applock.domain.repo.SystemAppRepo
 import dagger.Module
 import dagger.Provides
@@ -33,4 +35,10 @@ object RepoModule {
     fun providePermissionRepo(
         repo: PermissionRepoImpl
     ): PermissionRepo = repo
+
+    @Provides
+    @Singleton
+    fun provideScheduleRepo(
+        repo: ScheduleRepoImpl
+    ): ScheduleRepo = repo
 }

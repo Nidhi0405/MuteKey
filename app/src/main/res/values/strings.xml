@@ -6,6 +6,14 @@
     <string name="allow">Allow</string>
     <string name="hint_search">Search</string>
     <string name="search">Search</string>
+    <string name="schedule_name_validation_error">Please enter schedule name</string>
+    <string name="my_schedules">My Schedules</string>
+    <string name="new_schedule">New Schedule</string>
+    <string name="enter_schedule_name">Enter New Schedule Name</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_create_schedule">Create Schedule</string>
+    <string name="btn_delete_schedule">Delete</string>
+    <string name="btn_check_analytics">Check Analytics</string>
     <string name="nav_item_apps">Apps</string>
     <string name="nav_item_schedule">Schedule</string>
     <string name="nav_item_analytics">Analytics</string>

@@ -1,4 +1,4 @@
-package com.bbm.applock.presentation.mainModule.view
+package com.bbm.applock.presentation.installedControlledAppsModule.view
 
 import android.annotation.SuppressLint
 import android.content.ComponentName
@@ -52,7 +52,7 @@ import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.PermissionInfo
 import com.bbm.applock.R
 import com.bbm.applock.presentation.UiState
-import com.bbm.applock.presentation.mainModule.vm.InstalledAppVM
+import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAppVM
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.util.AppIcon
 import com.bbm.applock.util.AppIconFetcher
@@ -82,12 +82,15 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
 
         is UiState.Success<*> -> {
         }
+
+        is UiState.ValidationError -> {
+
+        }
     }
 
     LifeCycleEvent {
         if (it == Lifecycle.Event.ON_RESUME) {
             vm.checkPermission()
-            vm.syncAndGetInstalledApps()
         }
     }
     InstalledAppListScreenContent(
@@ -166,7 +169,7 @@ private fun InstalledAppListScreenContent(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(64.dp))
         PermissionContent(
             permission,
             click = onClickPermission,
@@ -356,9 +359,11 @@ fun AppUsageRow(
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp))
             ) {
-                val oneWeekInMillis = 7 * 24 * 60 * 60 * 1000L
+                val totalScreenTime =
+                    info.totalScreenTime?.timeInMillis?.takeIf { it > 0 }
+                        ?: (7 * 24 * 60 * 60 * 1000L)
                 val width =
-                    maxWidth * (info.usageTimeInMillis / oneWeekInMillis.toFloat()).coerceIn(0f, 1f)
+                    maxWidth * (info.usageTimeInMillis / totalScreenTime.toFloat()).coerceIn(0f, 1f)
                 Box(
                     modifier = Modifier
                         .width(width)

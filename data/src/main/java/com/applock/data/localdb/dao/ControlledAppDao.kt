@@ -9,7 +9,7 @@ import com.applock.data.localdb.entity.InstalledAppInfoEntity
 
 @Dao
 interface ControlledAppDao {
-    @Query("SELECT * FROM InstalledAppInfoEntity WHERE isControlledApp = 1")
+    @Query("SELECT * FROM installed_app_info_table WHERE isControlledApp = 1")
     suspend fun getControlledApps(): List<InstalledAppInfoEntity>
 
     @Insert(onConflict = OnConflictStrategy.Companion.REPLACE)
@@ -18,6 +18,6 @@ interface ControlledAppDao {
     @Delete
     suspend fun deleteControlledApp(app: InstalledAppInfoEntity)
 
-    @Query("SELECT * FROM InstalledAppInfoEntity WHERE packageName = :packageName")
+    @Query("SELECT * FROM installed_app_info_table WHERE packageName = :packageName")
     suspend fun getInstalledAppInfo(packageName: String): InstalledAppInfoEntity?
 }

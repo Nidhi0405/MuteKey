@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.zIndex
@@ -20,11 +21,12 @@ import com.bbm.applock.R
 @Composable
 fun ScreenSurface(
     modifier: Modifier = Modifier,
+    painter: Painter = painterResource(R.drawable.bg_app),
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(modifier) {
         Image(
-            painter = painterResource(R.drawable.bg_app),
+            painter = painter,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.FillBounds

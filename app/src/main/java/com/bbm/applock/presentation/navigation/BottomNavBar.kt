@@ -10,10 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.bbm.applock.ui.theme.Pink
 import com.bbm.applock.ui.theme.Typography
-import com.bbm.applock.ui.theme.pink
 
 @Composable
 fun BottomNavBar(
@@ -24,11 +25,12 @@ fun BottomNavBar(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val currentRoute = currentDestination?.route
-    val context = LocalContext.current
-    NavigationBar(modifier = modifier) {
+    NavigationBar(
+        modifier = modifier,
+        containerColor = Color.White
+    ) {
         items.forEach { item ->
             val isSelected = currentRoute?.contains(item.screen::class.simpleName.orEmpty()) == true
-
             NavigationBarItem(
                 selected = currentDestination?.route?.contains(item.screen::class.simpleName.orEmpty()) == true,
                 onClick = {
@@ -43,15 +45,15 @@ fun BottomNavBar(
                 icon = {
                     Icon(
                         painter = painterResource(id = item.icon),
-                        contentDescription = context.getString(item.label),
-                        tint = if (isSelected) pink else Color.Black
+                        contentDescription = stringResource(item.label),
+                        tint = if (isSelected) Pink else Color.Black
                     )
                 },
                 label = {
                     Text(
-                        text = context.getString(item.label),
+                        text = stringResource(item.label),
                         style = Typography.labelSmall,
-                        color = if (isSelected) pink else Color.Black
+                        color = if (isSelected) Pink else Color.Black
                     )
                 },
                 alwaysShowLabel = true

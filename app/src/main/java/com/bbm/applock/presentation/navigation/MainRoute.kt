@@ -9,16 +9,21 @@ object MainScreens {
     data object InstalledAppListScreenRoute
 
     @Serializable
-    data object ControlledAppListScreen
+    data object ControlledAppListScreenRoute
 
     @Serializable
-    data object ScheduleScreen
+    data object ScheduleScreenRoute
 
     @Serializable
-    data object AnalyticsScreen
+    data object AnalyticsScreenRoute
 
     @Serializable
-    data object ProfileScreen
+    data object ProfileScreenRoute
+
+    @Serializable
+    data class ScheduleDetailScreenRoute(
+        val id: Int,
+        val name: String,
+        val isActive: Boolean
+    )
 }
-
-
