@@ -2,13 +2,17 @@ package com.bbm.applock.presentation.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.bbm.applock.R
 import com.bbm.applock.presentation.mainModule.view.InstalledAppListScreen
+import com.bbm.applock.presentation.mainModule.view.ScheduleScreen
 import com.bbm.applock.presentation.mainModule.vm.InstalledAppVM
+import com.bbm.applock.presentation.mainModule.vm.SchedulesScreenVM
 import com.bbm.applock.util.ScreenSurface
 
 
@@ -31,6 +35,15 @@ private fun NavGraphBuilder.initAppScreens() {
         val vm = hiltViewModel<InstalledAppVM>()
         ScreenSurface {
             InstalledAppListScreen(vm)
+        }
+    }
+
+    composable<MainScreens.ScheduleScreenRoute> {
+        val vm = hiltViewModel<SchedulesScreenVM>()
+        ScreenSurface(
+            painter = painterResource(R.drawable.bg_schedule_screen)
+        ) {
+            ScheduleScreen(vm)
         }
     }
 }

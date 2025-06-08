@@ -9,8 +9,10 @@ object MainScreens {
     data object InstalledAppListScreenRoute
 
     @Serializable
-    data object ControlledAppListScreen
+    data object ControlledAppListScreenRoute
 
+    @Serializable
+    data object ScheduleScreenRoute
 
 }
 

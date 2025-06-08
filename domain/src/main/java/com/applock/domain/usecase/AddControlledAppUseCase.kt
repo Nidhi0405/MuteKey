@@ -7,7 +7,12 @@ import javax.inject.Inject
 class AddControlledAppUseCase @Inject constructor(
     private val localAppRepo: LocalAppRepo,
 ) {
-    suspend operator fun invoke(app: AppUsageInfo) {
-        localAppRepo.storeControlledApps(app)
+    suspend operator fun invoke(app: AppUsageInfo): Result<Unit> {
+        return try {
+            localAppRepo.storeControlledApps(app)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

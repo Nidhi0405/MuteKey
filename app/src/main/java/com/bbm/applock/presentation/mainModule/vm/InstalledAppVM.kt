@@ -1,6 +1,7 @@
 package com.bbm.applock.presentation.mainModule.vm
 
 import androidx.lifecycle.viewModelScope
+import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.PermissionInfo
 import com.applock.domain.usecase.AddControlledAppUseCase
@@ -79,13 +80,6 @@ class InstalledAppVM @Inject constructor(
         _searchText.value = value
     }
 
-    fun onSearchClick() {
-        if (_searchText.value.isEmpty()) return
-        viewModelScope.launch {
-            // todo filter on query
-        }
-    }
-
     fun onAddOrRemoveControlledApp(app: AppUsageInfo) {
         viewModelScope.launch {
             val currentList = _installedApps.value.toMutableList()
@@ -94,10 +88,21 @@ class InstalledAppVM @Inject constructor(
             val controlledApp = app.copy(isControlledApp = !app.isControlledApp)
             currentList[index] = controlledApp
             _installedApps.value = currentList
-            if (app.isControlledApp)
-                deleteControlledAppUseCase.invoke(controlledApp)
-            else
-                addControlledAppUseCase.invoke(controlledApp)
+            if (app.isControlledApp) {
+                deleteControlledAppUseCase.invoke(controlledApp).fold(
+                    onSuccess = {},
+                    onFailure = {
+                        it.stackTraceToString().logE()
+                    }
+                )
+            } else {
+                addControlledAppUseCase.invoke(controlledApp).fold(
+                    onSuccess = {},
+                    onFailure = {
+                        it.stackTraceToString().logE()
+                    }
+                )
+            }
         }
     }
 }

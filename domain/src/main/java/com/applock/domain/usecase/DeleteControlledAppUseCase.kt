@@ -7,7 +7,12 @@ import javax.inject.Inject
 class DeleteControlledAppUseCase @Inject constructor(
     private val localAppRepo: LocalAppRepo,
 ) {
-    suspend operator fun invoke(app: AppUsageInfo) {
-        localAppRepo.deleteControlledApp(app)
+    suspend operator fun invoke(app: AppUsageInfo): Result<Unit> {
+        return try {
+            localAppRepo.deleteControlledApp(app)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

@@ -44,6 +44,12 @@ object DataModule {
 
     @Provides
     @Singleton
+    fun provideScheduleDao(
+        lockAppDb: LockAppDb
+    ) = lockAppDb.scheduleDao()
+
+    @Provides
+    @Singleton
     fun getLocalDataStore(
         @ApplicationContext context: Context
     ): LocalDataStore = LocalDataStoreImpl(

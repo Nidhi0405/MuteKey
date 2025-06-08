@@ -82,12 +82,15 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
 
         is UiState.Success<*> -> {
         }
+
+        is UiState.ValidationError -> {
+
+        }
     }
 
     LifeCycleEvent {
         if (it == Lifecycle.Event.ON_RESUME) {
             vm.checkPermission()
-            vm.syncAndGetInstalledApps()
         }
     }
     InstalledAppListScreenContent(
@@ -166,7 +169,7 @@ private fun InstalledAppListScreenContent(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(64.dp))
         PermissionContent(
             permission,
             click = onClickPermission,

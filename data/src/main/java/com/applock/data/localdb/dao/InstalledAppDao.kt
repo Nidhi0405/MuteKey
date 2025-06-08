@@ -9,12 +9,12 @@ import com.applock.data.localdb.entity.InstalledAppInfoEntity
 @Dao
 interface InstalledAppDao {
 
-    @Query("SELECT * FROM InstalledAppInfoEntity")
+    @Query("SELECT * FROM installed_app_info_table")
     suspend fun getStoredApp(): List<InstalledAppInfoEntity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun storeInstalledApps(apps: List<InstalledAppInfoEntity>)
 
-    @Query("DELETE FROM InstalledAppInfoEntity WHERE packageName IN (:packages)")
+    @Query("DELETE FROM installed_app_info_table WHERE packageName IN (:packages)")
     suspend fun deleteUninstalledApps(packages: List<String>)
 }
