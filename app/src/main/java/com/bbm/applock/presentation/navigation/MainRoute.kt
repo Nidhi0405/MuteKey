@@ -11,6 +11,14 @@ object MainScreens {
     @Serializable
     data object ControlledAppListScreen
 
+    @Serializable
+    data object ScheduleScreen
 
+    @Serializable
+    data object AnalyticsScreen
+
+    @Serializable
+    data object ProfileScreen
 }
+
 
