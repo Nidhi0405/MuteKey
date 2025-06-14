@@ -95,6 +95,7 @@ class SchedulesScreenVM @Inject constructor(
 
     fun deleteSchedule(schedule: Schedule) {
         viewModelScope.launch(dispatcher.io) {
+            toggleScheduleSettingsDialog(null)
             deleteScheduleUseCase.invoke(schedule).fold(
                 onSuccess = {
                     "Schedule ${schedule.name} toggled".logI()

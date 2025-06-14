@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,14 +26,10 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,7 +43,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
-import coil3.ImageLoader
 import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.PermissionInfo
@@ -54,11 +50,12 @@ import com.bbm.applock.R
 import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAppVM
 import com.bbm.applock.ui.theme.AppLockTheme
+import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.util.AppIcon
-import com.bbm.applock.util.AppIconFetcher
 import com.bbm.applock.util.LifeCycleEvent
 import com.bbm.applock.util.MultiDevicePreview
 import com.bbm.applock.util.ScreenSurface
+import com.bbm.applock.util.SearchBar
 import com.bbm.applock.util.formatUsageTime
 import com.bbm.applock.util.noRippleClickable
 
@@ -69,6 +66,7 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
     val context = LocalContext.current
     val searchText = vm.searchText.collectAsState()
     val appList = vm.installedAppList.collectAsState()
+    val imageLoader = vm.imageLoader
 
     when (state.value) {
         is UiState.Failure<*> -> {
@@ -89,7 +87,7 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
     }
 
     LifeCycleEvent {
-        if (it == Lifecycle.Event.ON_RESUME) {
+        if (it == Lifecycle.Event.ON_START) {
             vm.checkPermission()
         }
     }
@@ -104,13 +102,6 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
         },
         appList = appList.value,
         painter = {
-            val imageLoader = remember(it.packageName) {
-                ImageLoader.Builder(context)
-                    .components {
-                        add(AppIconFetcher.Factory(context))
-                    }
-                    .build()
-            }
             rememberAsyncImagePainter(
                 model = AppIcon(it.packageName),
                 imageLoader = imageLoader
@@ -151,7 +142,9 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
                 }
             }
         },
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
     )
 }
 
@@ -168,8 +161,7 @@ private fun InstalledAppListScreenContent(
     onClickPermission: (PermissionInfo.Permission) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.height(64.dp))
+    Column(modifier = modifier) {
         PermissionContent(
             permission,
             click = onClickPermission,
@@ -368,7 +360,7 @@ fun AppUsageRow(
                     modifier = Modifier
                         .width(width)
                         .fillMaxHeight()
-                        .background(Color(0xFF099ABB))
+                        .background(AquaBlue)
                 )
             }
         }
@@ -412,90 +404,6 @@ private fun AppUsageRowPreview() {
     }
 }
 
-@Composable
-fun SearchBar(
-    query: String,
-    onTextChange: (String) -> Unit,
-    onSearchClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .height(32.dp)
-            .height(82.dp),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(4.dp),
-        colors = CardDefaults.cardColors(Color.White)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_search),
-                contentDescription = "Search",
-                modifier = Modifier.size(16.dp)
-            )
-
-            Spacer(Modifier.width(8.dp))
-
-            BasicTextField(
-                value = query,
-                onValueChange = onTextChange,
-                textStyle = MaterialTheme.typography
-                    .labelMedium
-                    .copy(fontSize = 14.sp, fontWeight = FontWeight.W200),
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-                    .weight(1f),
-            ) { innerTextField ->
-                if (query.isEmpty())
-                    Text(
-                        stringResource(R.string.hint_search),
-                        style = MaterialTheme.typography
-                            .labelMedium
-                            .copy(fontSize = 14.sp, fontWeight = FontWeight.W200)
-                    )
-                innerTextField()
-            }
-
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .noRippleClickable(onClick = onSearchClick)
-                    .background(Color(0xFF099ABB))
-                    .wrapContentSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.search),
-                    style = MaterialTheme.typography
-                        .labelMedium
-                        .copy(fontSize = 10.sp, color = Color.White),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
-                )
-            }
-        }
-    }
-}
-
-@MultiDevicePreview
-@Composable
-private fun SearchBarPreview() {
-    AppLockTheme {
-        SearchBar(
-            "Instagram",
-            {},
-            {},
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
 
 @MultiDevicePreview
 @Composable

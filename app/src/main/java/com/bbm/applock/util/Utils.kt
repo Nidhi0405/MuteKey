@@ -5,6 +5,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 fun formatUsageTime(ms: Long): String {
     val totalSecs = ms / 1000
@@ -29,3 +33,14 @@ inline fun Modifier.noRippleClickable(
     }
 }
 
+val timeFormatter = DateTimeFormatter.ofPattern("hh:mm a", Locale.ENGLISH)
+val LocalTime.toHourMinute: String
+    get() = format(timeFormatter)
+
+val dateFormatter = DateTimeFormatter.ofPattern("dd")
+
+private val formatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH)
+val LocalDate.toDayDateMonth: String
+    get() {
+        return format(formatter)
+    }

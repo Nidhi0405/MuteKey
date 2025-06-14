@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,13 +29,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -50,7 +48,8 @@ import com.bbm.applock.R
 import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.scheduleModule.vm.SchedulesScreenVM
 import com.bbm.applock.ui.theme.AppLockTheme
-import com.bbm.applock.ui.theme.TextSecondary
+import com.bbm.applock.ui.theme.TextButtonColor
+import com.bbm.applock.ui.theme.TextPrimaryGradient
 import com.bbm.applock.util.MultiDevicePreview
 import com.bbm.applock.util.ScreenSurface
 import com.bbm.applock.util.noRippleClickable
@@ -105,7 +104,6 @@ fun ScheduleScreen(
             vm.toggleScheduleSettingsDialog(it)
         },
         onScheduleDeleteClick = {
-            vm.toggleScheduleSettingsDialog(null)
             vm.deleteSchedule(it)
         },
         onScheduleAnalyticsClick = {
@@ -124,7 +122,10 @@ fun ScheduleScreen(
         selectedScheduleForSetting = scheduleSettingsDialog.value.second,
         newScheduleName = newScheduleName.value,
         schedules = scheduleList.value,
-        isCreateScheduleDialogVisible = isCreateScheduleDialogVisible.value
+        isCreateScheduleDialogVisible = isCreateScheduleDialogVisible.value,
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
     )
 }
 
@@ -167,12 +168,10 @@ private fun ScheduleScreenContent(
             onDismiss = onScheduleSettingsDismissClick
         )
     }
-    val horizontalPadding = 14.dp
+    val horizontalPadding = 16.dp
     Column(
         modifier = modifier
-            .fillMaxSize()
     ) {
-        Spacer(modifier = Modifier.height(64.dp))
         HeaderSection(
             onAddSchedule = {
                 onAddNewSchedule.invoke()
@@ -206,7 +205,7 @@ private fun ScheduleScreenContent(
 }
 
 @Composable
-fun HeaderSection(
+private fun HeaderSection(
     onAddSchedule: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -225,14 +224,7 @@ fun HeaderSection(
             Text(
                 text = stringResource(R.string.my_schedules),
                 style = MaterialTheme.typography.titleLarge.copy(
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            Color(0XFF0C9BBB),
-                            Color(0XFF6BD1CD)
-                        ),
-                        startY = 0.0f,
-                        endY = 100.0f
-                    ),
+                    brush = TextPrimaryGradient,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -375,13 +367,8 @@ fun CreateScheduleDialog(
             Text(
                 text = stringResource(R.string.new_schedule),
                 style = MaterialTheme.typography.titleLarge.copy(
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            Color(0XFF0C9BBB),
-                            Color(0XFF6BD1CD)
-                        )
-                    ),
-                    fontSize = 18.sp,
+                    brush = TextPrimaryGradient,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.W600
                 )
             )
@@ -403,7 +390,10 @@ fun CreateScheduleDialog(
                 ) {
                     BasicTextField(
                         value = name,
-                        onValueChange = onTextChange,
+                        onValueChange = {
+                            if (it.length <= 20)
+                                onTextChange.invoke(it)
+                        },
                         textStyle = MaterialTheme.typography
                             .labelMedium
                             .copy(
@@ -414,6 +404,7 @@ fun CreateScheduleDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp)
+                            .padding(top = 1.dp)
                             .weight(1f),
                     ) { innerTextField ->
                         if (name.isEmpty())
@@ -421,7 +412,11 @@ fun CreateScheduleDialog(
                                 stringResource(R.string.enter_schedule_name),
                                 style = MaterialTheme.typography
                                     .labelMedium
-                                    .copy(fontSize = 14.sp, fontWeight = FontWeight.W200)
+                                    .copy(fontSize = 14.sp, fontWeight = FontWeight.W400),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 1.dp)
+                                    .weight(1f)
                             )
                         innerTextField()
                     }
@@ -442,7 +437,7 @@ fun CreateScheduleDialog(
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
-                            color = TextSecondary
+                            color = TextButtonColor
                         )
                     )
                 }
@@ -451,14 +446,14 @@ fun CreateScheduleDialog(
                         onCreateClick.invoke()
                     },
                     modifier = Modifier.weight(1f),
-                    enabled = name.length in 3..20
+                    enabled = name.length >= 3
                 ) {
                     Text(
                         stringResource(R.string.btn_create_schedule),
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
-                            color = TextSecondary
+                            color = TextButtonColor
                         )
                     )
                 }
@@ -506,13 +501,8 @@ fun ScheduleSettingsDialog(
             Text(
                 text = schedule.name,
                 style = MaterialTheme.typography.titleLarge.copy(
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            Color(0XFF0C9BBB),
-                            Color(0XFF6BD1CD)
-                        )
-                    ),
-                    fontSize = 18.sp,
+                    brush = TextPrimaryGradient,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.W600
                 ),
                 maxLines = 2,
@@ -538,7 +528,7 @@ fun ScheduleSettingsDialog(
                         contentScale = ContentScale.FillBounds,
                         modifier = Modifier.size(22.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         text = stringResource(R.string.btn_delete_schedule),
                         style = MaterialTheme
@@ -547,7 +537,7 @@ fun ScheduleSettingsDialog(
                             .copy(
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.W600,
-                                color = TextSecondary
+                                color = TextButtonColor
                             )
                     )
                 }
@@ -562,12 +552,12 @@ fun ScheduleSettingsDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Image(
-                        painter = painterResource(R.drawable.ic_analytics),
+                        painter = painterResource(R.drawable.ic_schedule_analytics),
                         contentDescription = "Analytics",
                         contentScale = ContentScale.FillBounds,
                         modifier = Modifier.size(22.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         text = stringResource(R.string.btn_check_analytics),
                         style = MaterialTheme
@@ -576,7 +566,7 @@ fun ScheduleSettingsDialog(
                             .copy(
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.W600,
-                                color = TextSecondary
+                                color = TextButtonColor
                             )
                     )
                 }
@@ -602,13 +592,10 @@ private fun ScheduleSettingsDialogPreview() {
 @Composable
 fun ScheduleScreenContentPreview() {
     AppLockTheme {
-        val isDialogVisible = remember { mutableStateOf(false) }
         ScreenSurface(painter = painterResource(R.drawable.bg_schedule_screen)) {
             ScheduleScreenContent(
-                onAddNewSchedule = {
-                    isDialogVisible.value = !isDialogVisible.value
-                },
-                isCreateScheduleDialogVisible = isDialogVisible.value,
+                onAddNewSchedule = {},
+                isCreateScheduleDialogVisible = false,
                 onToggleSchedule = {},
                 onCreateScheduleClick = {},
                 onScheduleSettingsClick = {},
@@ -616,9 +603,7 @@ fun ScheduleScreenContentPreview() {
                 onScheduleSettingsDismissClick = {},
                 onNewScheduleNameChange = {},
                 newScheduleName = "",
-                onNewScheduleDismiss = {
-                    isDialogVisible.value = false
-                },
+                onNewScheduleDismiss = {},
                 onScheduleDeleteClick = {},
                 onScheduleAnalyticsClick = {},
                 isScheduleSettingsDialogVisible = false,
