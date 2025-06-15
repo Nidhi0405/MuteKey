@@ -74,6 +74,7 @@ import com.bbm.applock.util.CalenderViewType
 import com.bbm.applock.util.MultiDevicePreview
 import com.bbm.applock.util.ScreenSurface
 import com.bbm.applock.util.noRippleClickable
+import com.bbm.applock.util.readable
 import com.bbm.applock.util.toDayDateMonth
 import com.bbm.applock.util.toHourMinute
 import com.kizitonwose.calendar.compose.CalendarState
@@ -85,6 +86,7 @@ import com.kizitonwose.calendar.compose.weekcalendar.rememberWeekCalendarState
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import nl.joery.timerangepicker.TimeRangePicker
 import nl.joery.timerangepicker.TimeRangePicker.OnTimeChangeListener
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.Month
@@ -119,6 +121,7 @@ fun ScheduleDetailScreen(
 
     val currentSelectedDateData = vm.currentSelectedDateData.collectAsState().value
     val scheduleDatesMap = vm.scheduleDatesMap.collectAsState().value
+    val totalTimeBlockedForSelectedDate = vm.totalBlockedDuration.collectAsState().value
 
     ScheduleDetailScreenContent(
         schedule = schedule,
@@ -136,6 +139,7 @@ fun ScheduleDetailScreen(
         controlledApps = controlledApps,
         selectedApps = selectedApps,
         selectedTimeSlot = selectedTimeSlot,
+        totalTimeBlockedForSelectedDate = totalTimeBlockedForSelectedDate,
         onAppSelectToggleClick = vm::onAppSelectToggleClick,
         onSelectTimeSlot = vm::onSelectTimeSlot,
         onSelectedDayChanged = vm::onSelectedDayChanged,
@@ -176,6 +180,7 @@ fun ScheduleDetailScreenContent(
     controlledApps: List<AppUsageInfo>,
     selectedApps: Set<AppUsageInfo>,
     selectedTimeSlot: Pair<LocalTime, LocalTime>,
+    totalTimeBlockedForSelectedDate: Duration,
     onAppSelectToggleClick: (AppUsageInfo) -> Unit,
     onSelectTimeSlot: (LocalTime, LocalTime) -> Unit,
     onSelectedDayChanged: (LocalDate) -> Unit,
@@ -247,6 +252,7 @@ fun ScheduleDetailScreenContent(
 
             SelectedDateDetailCard(
                 currentSelectedDateData = currentSelectedDateData,
+                totalTimeBlockedForSelectedDate = totalTimeBlockedForSelectedDate,
                 currentDate = currentDate,
                 selectedDate = selectedDay,
                 painter = painterForBlockedApp,
@@ -519,6 +525,7 @@ fun PrevNextDayButtonSection(
 @Composable
 fun SelectedDateDetailCard(
     currentSelectedDateData: ScheduleWithDates.DateItem?,
+    totalTimeBlockedForSelectedDate: Duration,
     currentDate: LocalDate,
     selectedDate: LocalDate,
     painter: @Composable (Schedule.DateInput.TimeSlotsInput.BlockedAppsInput) -> Painter,
@@ -569,8 +576,9 @@ fun SelectedDateDetailCard(
                                 fontWeight = FontWeight.W600,
                             )
                         )
+                        Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "12 Hours",
+                            text = totalTimeBlockedForSelectedDate.readable,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = TextSecondary,
                                 fontSize = 12.sp,
@@ -756,6 +764,7 @@ private fun ScheduleDetailScreenContentPreview() {
         ScreenSurface {
             ScheduleDetailScreenContent(
                 schedule = Schedule(0, "Work Mode", true),
+                currentSelectedDateData = null,
                 currentMonth = currentMonth,
                 startMonth = startMonth,
                 endMonth = endMonth,
@@ -780,13 +789,13 @@ private fun ScheduleDetailScreenContentPreview() {
                 onCreateOrUpdateTimeSlot = {},
                 onDismissBsd = {},
                 onBackPress = {},
+                shouldShowIndicatorOnDay = { false },
                 painter = {
                     painterResource(R.drawable.ic_launcher_background)
                 },
-                modifier = Modifier.fillMaxSize(),
-                currentSelectedDateData = null,
                 painterForBlockedApp = { painterResource(R.drawable.ic_launcher_background) },
-                shouldShowIndicatorOnDay = { false }
+                modifier = Modifier.fillMaxSize(),
+                totalTimeBlockedForSelectedDate = Duration.ZERO
             )
         }
     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -43,4 +44,17 @@ private val formatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLIS
 val LocalDate.toDayDateMonth: String
     get() {
         return format(formatter)
+    }
+
+val Duration.readable: String
+    get() {
+        val hours = seconds / 3600
+        val minutes = (seconds % 3600) / 60
+        val secs = seconds % 60
+
+        return buildString {
+            if (hours > 0) append("$hours hr ")
+            if (minutes > 0) append("$minutes min ")
+            if (secs > 0 || isEmpty()) append("$secs sec")
+        }.trim()
     }

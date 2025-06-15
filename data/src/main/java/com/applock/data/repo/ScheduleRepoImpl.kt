@@ -11,6 +11,8 @@ import com.applock.domain.model.ScheduleWithDates
 import com.applock.domain.repo.ScheduleRepo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 class ScheduleRepoImpl @Inject constructor(
@@ -37,11 +39,14 @@ class ScheduleRepoImpl @Inject constructor(
     }
 
     override suspend fun createDate(date: Schedule.DateInput): Long {
-        return scheduleDao.createDateEntry(date.toDateEntity())
+        return scheduleDao.getDateIdIfExists(date.date, date.scheduleId)?.toLong()
+            ?: scheduleDao.createDateEntry(date.toDateEntity())
     }
 
     override suspend fun createTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput): Long {
-        return scheduleDao.createTimeSlot(timeSlotsInput.toTimeSlotEntity())
+        return scheduleDao.getTimeSlotIdIfExists(
+            timeSlotsInput.start, timeSlotsInput.end, timeSlotsInput.dateId
+        )?.toLong() ?: scheduleDao.createTimeSlot(timeSlotsInput.toTimeSlotEntity())
     }
 
     override suspend fun updateTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput) {
@@ -58,5 +63,15 @@ class ScheduleRepoImpl @Inject constructor(
 
     override fun getScheduleWithDates(sheduleId: Int): Flow<ScheduleWithDates> {
         return scheduleDao.getScheduleWithDates(sheduleId).map { it.toDomain() }
+    }
+
+    override suspend fun isCurrentlyBlockedApp(
+        packageName: String, date: LocalDate, time: LocalTime
+    ): Boolean {
+        return scheduleDao.isPackageBlocked(packageName, date, time)
+    }
+
+    override suspend fun hasActiveTimeSlotNow(date: LocalDate, time: LocalTime): Boolean {
+        return scheduleDao.hasActiveTimeSlotNow(date, time)
     }
 }

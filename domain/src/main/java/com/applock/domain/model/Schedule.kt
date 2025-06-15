@@ -10,6 +10,7 @@ data class Schedule(
     val isActive: Boolean = false
 ) {
     data class DateInput(
+        val id: Int = 0,
         val date: LocalDate,
         val scheduleId: Int, // foreign key
     ) {
@@ -17,7 +18,7 @@ data class Schedule(
             val id: Int = 0,
             val start: LocalTime,
             val end: LocalTime,
-            val dateId: LocalDate, // foreign key
+            val dateId: Int = 0, // foreign key
         ) {
             data class BlockedAppsInput(
                 val id: Int,

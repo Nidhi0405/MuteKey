@@ -202,10 +202,11 @@ fun AddScheduleTimeRangeBottomSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = AquaBlue)
             ) {
                 Text(
-                    "Add Or Update",
+                    "Add",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = WhiteColor,
-                        fontSize = 18.sp
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.W600
                     )
                 )
             }

@@ -5,6 +5,7 @@ import com.applock.domain.model.Schedule
 
 fun Schedule.DateInput.toDateEntity(): DateEntity {
     return DateEntity(
+        id = id,
         epochDate = date,
         scheduleId = scheduleId
     )
@@ -12,7 +13,8 @@ fun Schedule.DateInput.toDateEntity(): DateEntity {
 
 fun DateEntity.toDomain(): Schedule.DateInput {
     return Schedule.DateInput(
+        id = id,
         date = epochDate,
-        scheduleId = scheduleId
+        scheduleId = scheduleId,
     )
 }

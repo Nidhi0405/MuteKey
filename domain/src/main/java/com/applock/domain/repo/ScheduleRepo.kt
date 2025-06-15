@@ -3,6 +3,8 @@ package com.applock.domain.repo
 import com.applock.domain.model.Schedule
 import com.applock.domain.model.ScheduleWithDates
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
+import java.time.LocalTime
 
 
 interface ScheduleRepo {
@@ -16,4 +18,12 @@ interface ScheduleRepo {
     suspend fun deleteTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput)
     suspend fun createBlockAppList(list: List<Schedule.DateInput.TimeSlotsInput.BlockedAppsInput>)
     fun getScheduleWithDates(scheduleId: Int): Flow<ScheduleWithDates>
+
+    suspend fun isCurrentlyBlockedApp(
+        packageName: String,
+        date: LocalDate,
+        time: LocalTime
+    ): Boolean
+
+    suspend fun hasActiveTimeSlotNow(date: LocalDate, time: LocalTime): Boolean
 }

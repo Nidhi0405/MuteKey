@@ -33,9 +33,10 @@ data class ScheduleEntity(
     indices = [Index("scheduleId")]
 )
 data class DateEntity(
-    @PrimaryKey(autoGenerate = false)
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
     val epochDate: LocalDate,
-    val scheduleId: Int,
+    val scheduleId: Int
 )
 
 @Entity(
@@ -43,7 +44,7 @@ data class DateEntity(
     foreignKeys = [
         ForeignKey(
             entity = DateEntity::class,
-            parentColumns = ["epochDate"],
+            parentColumns = ["id"],
             childColumns = ["dateId"],
             onDelete = CASCADE,
             onUpdate = CASCADE
@@ -56,7 +57,7 @@ data class TimeSlotEntity(
     val id: Int = 0,
     val startTime: LocalTime,
     val endTime: LocalTime,
-    val dateId: LocalDate
+    val dateId: Int
 )
 
 @Entity(
@@ -98,7 +99,7 @@ data class DateItemDTO(
     @Embedded
     val date: DateEntity,
     @Relation(
-        parentColumn = "epochDate",
+        parentColumn = "id",
         entityColumn = "dateId",
         entity = TimeSlotEntity::class
     )

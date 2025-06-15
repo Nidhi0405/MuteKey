@@ -3,6 +3,7 @@ package com.bbm.applock.presentation.scheduleModule.vm
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
+import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.Schedule
 import com.applock.domain.model.ScheduleWithDates
@@ -17,11 +18,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
@@ -41,7 +44,7 @@ class ScheduleDetailScreenVM @Inject constructor(
         name = savedStateHandle.get<String>("name") ?: "",
         isActive = savedStateHandle.get<Boolean>("isActive") == true,
     )
-    private val scheduleWithDates = getScheduleWithDatesUseCase(schedule.id)
+    private val scheduleWithDates by lazy { getScheduleWithDatesUseCase(schedule.id) }
 
     val currentMonth by lazy { YearMonth.now()!! }
     val startMonth by lazy { currentMonth.minusMonths(50)!! }
@@ -75,18 +78,34 @@ class ScheduleDetailScreenVM @Inject constructor(
         scheduleWithDates
             .map { swd ->
                 swd.dates.associateBy {
-                    it.date.date
+                    it.date.date.also {
+                        "$it".logE()
+                    }
                 }
             }
+            .distinctUntilChanged()
             .flowOn(dispatcher.io)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyMap())
 
     val currentSelectedDateData = selectedDay
         .combine(scheduleDatesMap) { day, map ->
-            map[day]
+            map[day].also {
+                "$it".logE()
+            }
         }
+        .distinctUntilChanged()
         .flowOn(dispatcher.io)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
+
+    val totalBlockedDuration: StateFlow<Duration> = currentSelectedDateData
+        .map { dateItem ->
+            dateItem?.timeSlots?.map { it.timeSlot }?.let { timeSlots ->
+                calculateTotalBlockedHours(timeSlots)
+            } ?: Duration.ZERO
+        }
+        .distinctUntilChanged()
+        .flowOn(dispatcher.io)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), Duration.ZERO)
 
     init {
         viewModelScope.launch(dispatcher.io) {
@@ -112,7 +131,6 @@ class ScheduleDetailScreenVM @Inject constructor(
             val timeSlotsInput = Schedule.DateInput.TimeSlotsInput(
                 start = _selectedTimeSlot.value.first,
                 end = _selectedTimeSlot.value.second,
-                dateId = _selectedDay.value,
             )
             val blockedAppsInput = _selectedControlledApps.value.map { app ->
                 Schedule.DateInput.TimeSlotsInput.BlockedAppsInput(
@@ -150,4 +168,31 @@ class ScheduleDetailScreenVM @Inject constructor(
         _selectedTimeSlot.value = LocalTime.now() to LocalTime.now().plusHours(1)
         _isTimeSlotDialogVisible.value = false
     }
+
+    private fun calculateTotalBlockedHours(timeSlots: List<Schedule.DateInput.TimeSlotsInput>): Duration {
+        if (timeSlots.isEmpty()) return Duration.ZERO
+
+        val sorted = timeSlots.sortedBy { it.start }
+        val merged = mutableListOf<Pair<LocalTime, LocalTime>>()
+
+        var currentStart = sorted.first().start
+        var currentEnd = sorted.first().end
+
+        for (i in 1 until sorted.size) {
+            val slot = sorted[i]
+            if (slot.start <= currentEnd) {
+                currentEnd = maxOf(currentEnd, slot.end)
+            } else {
+                merged.add(currentStart to currentEnd)
+                currentStart = slot.start
+                currentEnd = slot.end
+            }
+        }
+        merged.add(currentStart to currentEnd)
+
+        return merged.fold(Duration.ZERO) { acc, (start, end) ->
+            acc + Duration.between(start, end)
+        }
+    }
+
 }

@@ -14,9 +14,9 @@ class CreateTimeSlotUseCase @Inject constructor(
         list: List<Schedule.DateInput.TimeSlotsInput.BlockedAppsInput>
     ): Result<Unit> {
         return result {
-            scheduleRepo.createDate(selectedDate)
+            val id = scheduleRepo.createDate(selectedDate)
             val timeSlotId =
-                scheduleRepo.createTimeSlot(timeSlotsInput.copy(dateId = selectedDate.date))
+                scheduleRepo.createTimeSlot(timeSlotsInput.copy(dateId = id.toInt()))
             scheduleRepo.createBlockAppList(list.map { it.copy(timeSlotId = timeSlotId.toInt()) })
         }
     }
