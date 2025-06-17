@@ -1,5 +1,6 @@
 package com.bbm.applock.presentation.navigation
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -36,14 +37,14 @@ fun NavigationGraph(
 private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
     composable<MainScreens.InstalledAppListScreenRoute> {
         val vm = hiltViewModel<InstalledAppVM>()
-        ScreenSurface {
+        ScreenSurface(modifier = Modifier.fillMaxSize()){
             InstalledAppListScreen(vm)
         }
     }
 
     composable<MainScreens.ScheduleScreenRoute> {
         val vm = hiltViewModel<SchedulesScreenVM>()
-        ScreenSurface(
+        ScreenSurface(Modifier.fillMaxSize(),
             painter = painterResource(R.drawable.bg_schedule_screen)
         ) {
             ScheduleScreen(
@@ -62,20 +63,20 @@ private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
     }
 
     composable<MainScreens.AnalyticsScreenRoute> {
-        ScreenSurface {
+        ScreenSurface(modifier = Modifier.fillMaxSize()){
             AnalyticsScreen()
         }
     }
 
     composable<MainScreens.ProfileScreenRoute> {
-        ScreenSurface {
+        ScreenSurface(modifier = Modifier.fillMaxSize()){
             ProfileScreen()
         }
     }
 
     composable<MainScreens.ScheduleDetailScreenRoute> {
         val schedule = it.toRoute<MainScreens.ScheduleDetailScreenRoute>()
-        ScreenSurface {
+        ScreenSurface(modifier = Modifier.fillMaxSize()){
             // TODO
         }
     }

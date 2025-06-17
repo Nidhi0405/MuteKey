@@ -5,6 +5,17 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import android.graphics.Bitmap
+import android.util.Base64
+import java.io.ByteArrayOutputStream
+import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
+import android.util.Log
+import android.webkit.WebSettings
+import android.webkit.WebView
+import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.drawable.toDrawable
 
 fun formatUsageTime(ms: Long): String {
     val totalSecs = ms / 1000
@@ -28,4 +39,27 @@ inline fun Modifier.noRippleClickable(
         onClick()
     }
 }
+
+fun getAppIconDrawable(context: Context, packageName: String): Drawable? {
+    return try {
+        val drawable = context.packageManager.getApplicationIcon(packageName)
+        val bitmap = drawable.toBitmap(width = 48, height = 48)
+        bitmap.toDrawable(context.resources)
+    } catch (e: PackageManager.NameNotFoundException) {
+        Log.w("AppIcon", "Icon not found for package: $packageName", e)
+        null
+    }
+}
+
+fun getAppNameFromPackage(context: Context, packageName: String): String {
+    return try {
+        val packageManager = context.packageManager
+        val applicationInfo = packageManager.getApplicationInfo(packageName, 0)
+        packageManager.getApplicationLabel(applicationInfo).toString()
+    } catch (e: PackageManager.NameNotFoundException) {
+        packageName
+    }
+}
+
+
 

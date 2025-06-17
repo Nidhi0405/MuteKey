@@ -24,7 +24,7 @@ fun ScreenSurface(
     painter: Painter = painterResource(R.drawable.bg_app),
     content: @Composable BoxScope.() -> Unit
 ) {
-    Box(modifier) {
+    Box(modifier = modifier) {
         Image(
             painter = painter,
             contentDescription = null,

@@ -30,7 +30,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             AppLockTheme {
                 val navController = rememberNavController()
-                //val currentRoute = navBackStackEntry?.destination?.route
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
