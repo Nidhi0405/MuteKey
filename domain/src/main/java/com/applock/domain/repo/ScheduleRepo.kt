@@ -17,6 +17,8 @@ interface ScheduleRepo {
     suspend fun updateTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput)
     suspend fun deleteTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput)
     suspend fun createBlockAppList(list: List<Schedule.DateInput.TimeSlotsInput.BlockedAppsInput>)
+    suspend fun deleteAppsWithTimeSlotId(id: Int)
+
     fun getScheduleWithDates(scheduleId: Int): Flow<ScheduleWithDates>
 
     suspend fun isCurrentlyBlockedApp(

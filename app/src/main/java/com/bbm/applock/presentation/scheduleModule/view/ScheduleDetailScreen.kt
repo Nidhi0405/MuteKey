@@ -28,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
@@ -51,9 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import coil3.compose.rememberAsyncImagePainter
+import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.Schedule
 import com.applock.domain.model.ScheduleWithDates
@@ -66,6 +66,7 @@ import com.bbm.applock.presentation.scheduleModule.vm.ScheduleDetailScreenVM
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.AquaBlueLight
+import com.bbm.applock.ui.theme.TextButtonColor
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.ui.theme.WhiteColor
@@ -84,8 +85,6 @@ import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.compose.weekcalendar.WeekCalendarState
 import com.kizitonwose.calendar.compose.weekcalendar.rememberWeekCalendarState
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
-import nl.joery.timerangepicker.TimeRangePicker
-import nl.joery.timerangepicker.TimeRangePicker.OnTimeChangeListener
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
@@ -116,12 +115,12 @@ fun ScheduleDetailScreen(
 
     val controlledApps = vm.controlledApps.collectAsState().value
     val selectedApps = vm.selectedControlledApps.collectAsState().value
-    val isTimeSlotDialogVisible = vm.isTimeSlotDialogVisible.collectAsState().value
     val selectedTimeSlot = vm.selectedTimeSlot.collectAsState().value
 
     val currentSelectedDateData = vm.currentSelectedDateData.collectAsState().value
     val scheduleDatesMap = vm.scheduleDatesMap.collectAsState().value
     val totalTimeBlockedForSelectedDate = vm.totalBlockedDuration.collectAsState().value
+    val currentUpdatingTimeSlot = vm.currentUpdatingTimeSlot.collectAsState().value
 
     ScheduleDetailScreenContent(
         schedule = schedule,
@@ -133,19 +132,20 @@ fun ScheduleDetailScreen(
         startDate = startDate,
         endDate = endDate,
         selectedDay = selectedDay,
-        isTimeSlotDialogVisible = isTimeSlotDialogVisible,
-        onToggleTimeSlotDialog = vm::onTimeSlotDialogToggle,
         calenderViewType = calenderViewType,
         controlledApps = controlledApps,
         selectedApps = selectedApps,
         selectedTimeSlot = selectedTimeSlot,
         totalTimeBlockedForSelectedDate = totalTimeBlockedForSelectedDate,
+        currentUpdatingTimeSlot = currentUpdatingTimeSlot,
         onAppSelectToggleClick = vm::onAppSelectToggleClick,
         onSelectTimeSlot = vm::onSelectTimeSlot,
         onSelectedDayChanged = vm::onSelectedDayChanged,
         onChangeCalenderViewType = vm::onChangeCalenderViewType,
         onDismissBsd = vm::clearNewTimeSlotData,
-        onCreateOrUpdateTimeSlot = vm::createTimeSlots,
+        onClickExistingTimeSlot = vm::selectCurrentUpdatingTimeSlot,
+        onCreateTimeSlot = vm::onCreateOrUpdateTimeSlot,
+        onDeleteTimeSlot = vm::onDeleteTimeSlot,
         onBackPress = onBackPress,
         shouldShowIndicatorOnDay = {
             !scheduleDatesMap[it]?.timeSlots.isNullOrEmpty()
@@ -174,18 +174,19 @@ fun ScheduleDetailScreenContent(
     startDate: LocalDate,
     endDate: LocalDate,
     selectedDay: LocalDate,
-    isTimeSlotDialogVisible: Boolean,
-    onToggleTimeSlotDialog: () -> Unit,
     calenderViewType: CalenderViewType,
     controlledApps: List<AppUsageInfo>,
     selectedApps: Set<AppUsageInfo>,
     selectedTimeSlot: Pair<LocalTime, LocalTime>,
     totalTimeBlockedForSelectedDate: Duration,
+    currentUpdatingTimeSlot: Schedule.DateInput.TimeSlotsInput?,
     onAppSelectToggleClick: (AppUsageInfo) -> Unit,
     onSelectTimeSlot: (LocalTime, LocalTime) -> Unit,
+    onClickExistingTimeSlot: (ScheduleWithDates.DateItem.TimeSlotItem) -> Unit,
     onSelectedDayChanged: (LocalDate) -> Unit,
     onChangeCalenderViewType: (CalenderViewType) -> Unit,
-    onCreateOrUpdateTimeSlot: () -> Unit,
+    onCreateTimeSlot: () -> Unit,
+    onDeleteTimeSlot: () -> Unit,
     onDismissBsd: () -> Unit,
     onBackPress: () -> Unit,
     shouldShowIndicatorOnDay: (LocalDate) -> Boolean,
@@ -214,7 +215,10 @@ fun ScheduleDetailScreenContent(
         weekState.scrollToWeek(selectedDay)
         monthState.animateScrollToMonth(YearMonth.from(selectedDay))
     }
-    var showSheet by rememberSaveable { mutableStateOf(false) }
+    var showCreateOrUpdateTimeSlotSheet by rememberSaveable { mutableStateOf(false) }
+    var showActiveTimeSlotUpdateError by remember { mutableStateOf(false) }
+    var showPastTimeSlotUpdateError by remember { mutableStateOf(false) }
+
     currentMonthTitle = if (calenderViewType == CalenderViewType.WEEKLY) {
         weekState.firstVisibleWeek.days[0].date.month
     } else {
@@ -257,7 +261,35 @@ fun ScheduleDetailScreenContent(
                 selectedDate = selectedDay,
                 painter = painterForBlockedApp,
                 onAddClick = {
-                    showSheet = true
+                    showCreateOrUpdateTimeSlotSheet = true
+                },
+                onTimeSlotClick = {
+                    val now = LocalTime.now()
+                    val start = it.timeSlot.start
+                    val end = it.timeSlot.end
+
+                    val isInSlot = if (end.isAfter(start)) {
+                        // Normal case: same day
+                        !now.isBefore(start) && !now.isAfter(end)
+                    } else {
+                        // Crosses midnight
+                        !now.isBefore(start) || !now.isAfter(end)
+                    }
+                    when {
+                        selectedDay < currentDate -> {
+                            showPastTimeSlotUpdateError = true
+                        }
+
+                        schedule.isActive && selectedDay == currentDate && isInSlot -> {
+                            "Can not update current time slot".logE()
+                            showActiveTimeSlotUpdateError = true
+                        }
+
+                        else -> {
+                            onClickExistingTimeSlot.invoke(it)
+                            showCreateOrUpdateTimeSlotSheet = true
+                        }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -278,8 +310,10 @@ fun ScheduleDetailScreenContent(
                     .padding(horizontal = horizontalPadding + 4.dp)
             )
         }
-        if (showSheet) {
+
+        if (showCreateOrUpdateTimeSlotSheet) {
             AddScheduleTimeRangeBottomSheet(
+                currentUpdatingTimeSlot = currentUpdatingTimeSlot,
                 selectedDate = selectedDay,
                 controlledApps = controlledApps,
                 selectedApps = selectedApps,
@@ -287,31 +321,95 @@ fun ScheduleDetailScreenContent(
                 sheetState = sheetState,
                 startTime = selectedTimeSlot.first,
                 endTime = selectedTimeSlot.second,
+                onSelectTimeSlot = onSelectTimeSlot,
                 onDismiss = {
-                    showSheet = false
+                    showCreateOrUpdateTimeSlotSheet = false
                     onDismissBsd.invoke()
                 },
-                onTimeRangeSelectionClick = onToggleTimeSlotDialog,
                 onAddOrUpdateClick = {
-                    onCreateOrUpdateTimeSlot.invoke()
-                    showSheet = false
+                    onCreateTimeSlot.invoke()
+                    showCreateOrUpdateTimeSlotSheet = false
+                },
+                onDelete = {
+                    showCreateOrUpdateTimeSlotSheet = false
+                    onDeleteTimeSlot.invoke()
                 },
                 painter = painter
             )
         }
-        if (isTimeSlotDialogVisible) {
-            TimeRangePickerDialog(
-                startTime = selectedTimeSlot.first,
-                endTime = selectedTimeSlot.second,
-                onDismiss = { start, end ->
-                    onSelectTimeSlot(start, end)
-                    onToggleTimeSlotDialog()
-                },
+
+        if (showActiveTimeSlotUpdateError) {
+            TimeSlotUpdateErrorDialog(
+                title = stringResource(R.string.unable_to_update_time_slot),
+                description = stringResource(R.string.you_can_t_update_this_time_slot_because_the_schedule_is_currently_active),
+                onDismiss = {
+                    showActiveTimeSlotUpdateError = false
+                }
             )
+        }
+
+        if (showPastTimeSlotUpdateError) {
+            TimeSlotUpdateErrorDialog(
+                title = stringResource(R.string.action_not_allowed),
+                description = stringResource(R.string.past_time_slots_cannot_be_updated_or_deleted),
+            ) {
+                showPastTimeSlotUpdateError = false
+            }
         }
     }
 }
 
+
+@Composable
+fun TimeSlotUpdateErrorDialog(
+    title: String,
+    description: String,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0XFFF1FCFF))
+                .padding(vertical = 10.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                )
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W400,
+                )
+            )
+
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text(
+                    text = stringResource(R.string.ok),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W600,
+                        color = TextButtonColor
+                    )
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun HeaderSection(
@@ -530,6 +628,7 @@ fun SelectedDateDetailCard(
     selectedDate: LocalDate,
     painter: @Composable (Schedule.DateInput.TimeSlotsInput.BlockedAppsInput) -> Painter,
     onAddClick: () -> Unit,
+    onTimeSlotClick: (ScheduleWithDates.DateItem.TimeSlotItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val containerSize = LocalWindowInfo.current.containerSize
@@ -611,6 +710,9 @@ fun SelectedDateDetailCard(
                         items(count = currentSelectedDateData.timeSlots.size) {
                             TimeSlotsWithApps(
                                 timeSlots = currentSelectedDateData.timeSlots[it],
+                                onClick = {
+                                    onTimeSlotClick.invoke(currentSelectedDateData.timeSlots[it])
+                                },
                                 painter = painter,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -631,6 +733,7 @@ fun SelectedDateDetailCard(
 @Composable
 fun TimeSlotsWithApps(
     timeSlots: ScheduleWithDates.DateItem.TimeSlotItem,
+    onClick: () -> Unit,
     painter: @Composable (Schedule.DateInput.TimeSlotsInput.BlockedAppsInput) -> Painter,
     modifier: Modifier = Modifier
 ) {
@@ -638,7 +741,8 @@ fun TimeSlotsWithApps(
         modifier = modifier,
         elevation = CardDefaults.elevatedCardElevation(2.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(WhiteColor)
+        colors = CardDefaults.cardColors(WhiteColor),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier
@@ -676,75 +780,6 @@ fun TimeSlotsWithApps(
 }
 
 
-@Composable
-fun TimeRangePickerDialog(
-    startTime: LocalTime,
-    endTime: LocalTime,
-    onDismiss: (start: LocalTime, end: LocalTime) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-
-    var start by remember { mutableStateOf(startTime) }
-    var end by remember { mutableStateOf(endTime) }
-    val picker = remember {
-        TimeRangePicker(context).also {
-            it.setBackgroundColor(android.graphics.Color.WHITE)
-            it.clockFace = TimeRangePicker.ClockFace.APPLE
-            it.hourFormat = TimeRangePicker.HourFormat.FORMAT_24
-            it.sliderRangeColorRes = R.color.purple_200
-            it.thumbColorRes = R.color.purple_500
-            it.startTime = TimeRangePicker.Time(start.hour)
-            it.endTime = TimeRangePicker.Time(end.hour)
-            it.setOnTimeChangeListener(object : OnTimeChangeListener {
-                override fun onDurationChange(duration: TimeRangePicker.TimeDuration) {}
-
-                override fun onEndTimeChange(endTime: TimeRangePicker.Time) {
-                    end = endTime.localTime
-                }
-
-                override fun onStartTimeChange(time: TimeRangePicker.Time) {
-                    start = time.localTime
-                }
-            }
-            )
-        }
-    }
-    Dialog(
-        onDismissRequest = {
-            onDismiss(start, end)
-        }
-    ) {
-        Box(
-            modifier = modifier.clip(RoundedCornerShape(12.dp))
-        ) {
-            AndroidView(
-                factory = {
-                    picker.apply {
-                        this.startTime = TimeRangePicker.Time(startTime.hour)
-                        this.endTime = TimeRangePicker.Time(endTime.hour)
-                    }
-                },
-                update = {
-                    it.startTime = TimeRangePicker.Time(startTime.hour)
-                    it.endTime = TimeRangePicker.Time(endTime.hour)
-                }
-            )
-            Column(modifier = Modifier.align(Alignment.Center)) {
-                Text(
-                    "Start: ${start.toHourMinute}",
-                    style = MaterialTheme.typography.labelSmall
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "End: ${end.toHourMinute}",
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        }
-    }
-}
-
 @MultiDevicePreview
 @Composable
 private fun ScheduleDetailScreenContentPreview() {
@@ -772,21 +807,21 @@ private fun ScheduleDetailScreenContentPreview() {
                 startDate = startDate,
                 endDate = endDate,
                 selectedDay = selectedDay.value,
-                isTimeSlotDialogVisible = false,
-                onToggleTimeSlotDialog = {},
                 calenderViewType = calenderViewType.value,
                 controlledApps = emptyList(),
                 selectedApps = emptySet(),
                 selectedTimeSlot = LocalTime.now() to LocalTime.now().plusHours(1),
+                totalTimeBlockedForSelectedDate = Duration.ZERO,
                 onAppSelectToggleClick = {},
                 onSelectTimeSlot = { _, _ -> },
+                onClickExistingTimeSlot = {},
                 onSelectedDayChanged = {
                     selectedDay.value = it
                 },
                 onChangeCalenderViewType = {
                     calenderViewType.value = it
                 },
-                onCreateOrUpdateTimeSlot = {},
+                onCreateTimeSlot = {},
                 onDismissBsd = {},
                 onBackPress = {},
                 shouldShowIndicatorOnDay = { false },
@@ -794,8 +829,9 @@ private fun ScheduleDetailScreenContentPreview() {
                     painterResource(R.drawable.ic_launcher_background)
                 },
                 painterForBlockedApp = { painterResource(R.drawable.ic_launcher_background) },
+                currentUpdatingTimeSlot = null,
+                onDeleteTimeSlot = {},
                 modifier = Modifier.fillMaxSize(),
-                totalTimeBlockedForSelectedDate = Duration.ZERO
             )
         }
     }

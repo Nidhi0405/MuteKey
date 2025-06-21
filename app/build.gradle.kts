@@ -92,9 +92,6 @@ dependencies {
     //calender
     implementation(libs.compose)
 
-    // timepicker
-    implementation(libs.timerangepicker)
-
     //modules
     implementation(project(mapOf("path" to ":domain")))
     implementation(project(mapOf("path" to ":data")))

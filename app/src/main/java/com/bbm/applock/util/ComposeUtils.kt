@@ -57,23 +57,31 @@ fun ScreenSurface(
 
 @Composable
 fun FullScreenLoader(
+    isLoading: Boolean,
     backgroundColor: Color = Color.White.copy(alpha = 0.8f),
-    loaderColor: Color = MaterialTheme.colorScheme.primary
+    loaderColor: Color = MaterialTheme.colorScheme.primary,
+    content: @Composable BoxScope.() -> Unit
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(backgroundColor)
-            .noRippleClickable({
-
-            })
-            .zIndex(1f),
-        contentAlignment = Alignment.Center
+        modifier = Modifier.fillMaxSize()
     ) {
-        CircularProgressIndicator(color = loaderColor)
+        content.invoke(this)
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundColor)
+                    .zIndex(1f)
+                    .noRippleClickable {
+
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = loaderColor)
+            }
+        }
     }
 }
-
 
 @Composable
 fun SearchBar(

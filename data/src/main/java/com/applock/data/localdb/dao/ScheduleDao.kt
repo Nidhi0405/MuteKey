@@ -63,32 +63,50 @@ interface ScheduleDao {
 
     @Query(
         """
-        SELECT EXISTS(
-            SELECT 1 FROM blocked_app_table AS b
+        SELECT EXISTS (
+            SELECT 1
+            FROM blocked_app_table AS b
             INNER JOIN time_slot_table AS t ON b.timeSlotId = t.id
             INNER JOIN date_table AS d ON t.dateId = d.id
             INNER JOIN schedule_table AS s ON d.scheduleId = s.id
-            WHERE b.packageName = :packageName
-            AND d.epochDate = :date
-            AND :time BETWEEN t.startTime AND t.endTime
-            AND s.isActive = 1
+            WHERE 
+                b.packageName = :packageName
+                AND d.epochDate = :date
+                AND s.isActive = 1
+                AND (
+                    (t.startTime <= t.endTime AND :time BETWEEN t.startTime AND t.endTime)
+                     OR
+                    (t.startTime > t.endTime AND (:time >= t.startTime OR :time <= t.endTime))
+                )
         )
         """
     )
-    suspend fun isPackageBlocked(packageName: String, date: LocalDate, time: LocalTime): Boolean
-
+    suspend fun isPackageBlocked(
+        packageName: String,
+        date: LocalDate,
+        time: LocalTime
+    ): Boolean
 
     @Query(
         """
-        SELECT EXISTS(
-            SELECT 1 FROM time_slot_table AS t
-            INNER JOIN date_table AS d ON t.dateId = d.id
-            INNER JOIN schedule_table AS s ON d.scheduleId = s.id
-            WHERE d.epochDate = :date
-            AND :time BETWEEN t.startTime AND t.endTime
+        SELECT EXISTS (
+        SELECT 1
+        FROM time_slot_table AS t
+        INNER JOIN date_table AS d ON t.dateId = d.id
+        INNER JOIN schedule_table AS s ON d.scheduleId = s.id
+        WHERE 
+            d.epochDate = :date
+            AND (
+                (t.startTime <= t.endTime AND :time BETWEEN t.startTime AND t.endTime)
+                OR
+                (t.startTime > t.endTime AND (:time >= t.startTime OR :time <= t.endTime))
+            )
             AND s.isActive = 1
         )
         """
     )
     suspend fun hasActiveTimeSlotNow(date: LocalDate, time: LocalTime): Boolean
+
+    @Query("DELETE FROM blocked_app_table WHERE timeSlotId = :id")
+    suspend fun deleteAppsWithTimeSlotId(id: Int)
 }

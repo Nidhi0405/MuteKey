@@ -61,6 +61,10 @@ class ScheduleRepoImpl @Inject constructor(
         scheduleDao.createBlockAppList(list.map { it.toBlockedAppEntity() })
     }
 
+    override suspend fun deleteAppsWithTimeSlotId(id: Int) {
+        scheduleDao.deleteAppsWithTimeSlotId(id)
+    }
+
     override fun getScheduleWithDates(sheduleId: Int): Flow<ScheduleWithDates> {
         return scheduleDao.getScheduleWithDates(sheduleId).map { it.toDomain() }
     }

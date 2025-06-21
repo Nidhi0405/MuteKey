@@ -27,6 +27,10 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,15 +38,18 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.applock.domain.model.AppUsageInfo
+import com.applock.domain.model.Schedule
 import com.bbm.applock.R
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
+import com.bbm.applock.ui.theme.Red
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.ui.theme.WhiteColor
@@ -57,6 +64,7 @@ import java.time.LocalTime
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddScheduleTimeRangeBottomSheet(
+    currentUpdatingTimeSlot: Schedule.DateInput.TimeSlotsInput?,
     selectedDate: LocalDate,
     controlledApps: List<AppUsageInfo>,
     selectedApps: Set<AppUsageInfo>,
@@ -64,11 +72,18 @@ fun AddScheduleTimeRangeBottomSheet(
     startTime: LocalTime,
     endTime: LocalTime,
     onDismiss: () -> Unit,
-    onTimeRangeSelectionClick: () -> Unit,
     onAddOrUpdateClick: () -> Unit,
+    onDelete: () -> Unit,
+    onSelectTimeSlot: (start: LocalTime, end: LocalTime) -> Unit,
     painter: @Composable (AppUsageInfo) -> Painter,
     sheetState: SheetState,
 ) {
+    var isStartTimeSelectionDialogOpen by remember {
+        mutableStateOf(false)
+    }
+    var isEndTimeSelectionDialogOpen by remember {
+        mutableStateOf(false)
+    }
     val containerSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current.density
     val screenHeight = containerSize.height.dp / density
@@ -111,7 +126,7 @@ fun AddScheduleTimeRangeBottomSheet(
                     heading = "Start",
                     time = startTime.toHourMinute,
                     onClick = {
-                        onTimeRangeSelectionClick.invoke()
+                        isStartTimeSelectionDialogOpen = true
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -120,7 +135,7 @@ fun AddScheduleTimeRangeBottomSheet(
                     heading = "End",
                     time = endTime.toHourMinute,
                     onClick = {
-                        onTimeRangeSelectionClick.invoke()
+                        isEndTimeSelectionDialogOpen = true
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -194,23 +209,77 @@ fun AddScheduleTimeRangeBottomSheet(
 
             Spacer(Modifier.height(4.dp))
 
-            Button(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 26.dp),
-                onClick = onAddOrUpdateClick,
-                colors = ButtonDefaults.buttonColors(containerColor = AquaBlue)
+                    .padding(horizontal = 26.dp)
             ) {
-                Text(
-                    "Add",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = WhiteColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.W600
+                if (currentUpdatingTimeSlot != null) {
+                    Button(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        onClick = onDelete,
+                        colors = ButtonDefaults.buttonColors(containerColor = Red)
+                    ) {
+                        Text(
+                            stringResource(R.string.delete),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = WhiteColor,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.W600
+                            )
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                Button(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    onClick = onAddOrUpdateClick,
+                    enabled = selectedApps.isNotEmpty(),
+                    colors = ButtonDefaults.buttonColors(containerColor = AquaBlue)
+                ) {
+                    Text(
+                        if (currentUpdatingTimeSlot == null) stringResource(R.string.add)
+                        else stringResource(R.string.update),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = WhiteColor,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.W600
+                        )
                     )
-                )
+                }
             }
         }
+    }
+
+    if (isStartTimeSelectionDialogOpen) {
+        TimeRangePickerDialog(
+            title = stringResource(R.string.select_start_time),
+            time = startTime,
+            onConfirm = {
+                isStartTimeSelectionDialogOpen = false
+                onSelectTimeSlot.invoke(it, endTime)
+            },
+            onDismiss = {
+                isStartTimeSelectionDialogOpen = false
+            }
+        )
+    }
+    if (isEndTimeSelectionDialogOpen) {
+        TimeRangePickerDialog(
+            title = stringResource(R.string.select_end_time),
+            time = endTime,
+            onConfirm = {
+                isEndTimeSelectionDialogOpen = false
+                onSelectTimeSlot.invoke(startTime, it)
+            },
+            onDismiss = {
+                isEndTimeSelectionDialogOpen = false
+            }
+        )
     }
 }
 
@@ -267,19 +336,21 @@ private fun AddScheduleTimeRangeBottomSheetPreview() {
         ScreenSurface {
             AddScheduleTimeRangeBottomSheet(
                 selectedDate = LocalDate.now(),
+                controlledApps = emptyList(),
+                selectedApps = emptySet(),
+                onAppSelectToggleClick = {},
                 startTime = LocalTime.now(),
                 endTime = LocalTime.now().plusHours(1),
                 onDismiss = {},
-                sheetState = rememberModalBottomSheetState().apply {
-                },
-                onTimeRangeSelectionClick = {},
                 onAddOrUpdateClick = {},
-                selectedApps = emptySet(),
-                controlledApps = emptyList(),
-                onAppSelectToggleClick = {},
+                onSelectTimeSlot = { _, _ -> },
                 painter = {
                     painterResource(R.drawable.ic_launcher_background)
-                }
+                },
+                sheetState = rememberModalBottomSheetState().apply {
+                },
+                currentUpdatingTimeSlot = null,
+                onDelete = {}
             )
         }
     }

@@ -3,13 +3,15 @@ package com.bbm.applock.presentation.scheduleModule.vm
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
-import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.Schedule
 import com.applock.domain.model.ScheduleWithDates
+import com.applock.domain.model.ScheduleWithDates.DateItem.TimeSlotItem
 import com.applock.domain.usecase.CreateTimeSlotUseCase
+import com.applock.domain.usecase.DeleteTimeSlotUseCase
 import com.applock.domain.usecase.GetControlledAppsUseCase
 import com.applock.domain.usecase.GetScheduleWithDatesUseCase
+import com.applock.domain.usecase.UpdateTimeSlotUseCase
 import com.bbm.applock.dispatcher.CoroutineDispatcherProvider
 import com.bbm.applock.presentation.base.BaseVM
 import com.bbm.applock.util.CalenderViewType
@@ -35,15 +37,19 @@ class ScheduleDetailScreenVM @Inject constructor(
     private val dispatcher: CoroutineDispatcherProvider,
     private val getControlledAppsUseCase: GetControlledAppsUseCase,
     private val createTimeSlotUseCase: CreateTimeSlotUseCase,
+    private val updateTimeSlotUseCase: UpdateTimeSlotUseCase,
+    private val deleteTimeSlotUseCase: DeleteTimeSlotUseCase,
     private val getScheduleWithDatesUseCase: GetScheduleWithDatesUseCase,
     private val savedStateHandle: SavedStateHandle,
     val imageLoader: ImageLoader
 ) : BaseVM() {
-    private val schedule = Schedule(
-        id = savedStateHandle.get<Int>("id") ?: 0,
-        name = savedStateHandle.get<String>("name") ?: "",
-        isActive = savedStateHandle.get<Boolean>("isActive") == true,
-    )
+    private val schedule by lazy {
+        Schedule(
+            id = savedStateHandle.get<Int>("id") ?: 0,
+            name = savedStateHandle.get<String>("name") ?: "",
+            isActive = savedStateHandle.get<Boolean>("isActive") == true,
+        )
+    }
     private val scheduleWithDates by lazy { getScheduleWithDatesUseCase(schedule.id) }
 
     val currentMonth by lazy { YearMonth.now()!! }
@@ -67,8 +73,6 @@ class ScheduleDetailScreenVM @Inject constructor(
         MutableStateFlow<LinkedHashSet<AppUsageInfo>>(LinkedHashSet())
     val selectedControlledApps: StateFlow<Set<AppUsageInfo>> = _selectedControlledApps
 
-    private val _isTimeSlotDialogVisible = MutableStateFlow(false)
-    val isTimeSlotDialogVisible: StateFlow<Boolean> = _isTimeSlotDialogVisible
     private val _selectedTimeSlot = MutableStateFlow<Pair<LocalTime, LocalTime>>(
         LocalTime.now() to LocalTime.now().plusHours(1)
     )
@@ -76,23 +80,13 @@ class ScheduleDetailScreenVM @Inject constructor(
 
     val scheduleDatesMap: StateFlow<Map<LocalDate, ScheduleWithDates.DateItem>> =
         scheduleWithDates
-            .map { swd ->
-                swd.dates.associateBy {
-                    it.date.date.also {
-                        "$it".logE()
-                    }
-                }
-            }
+            .map { swd -> swd.dates.associateBy { it.date.date } }
             .distinctUntilChanged()
             .flowOn(dispatcher.io)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyMap())
 
     val currentSelectedDateData = selectedDay
-        .combine(scheduleDatesMap) { day, map ->
-            map[day].also {
-                "$it".logE()
-            }
-        }
+        .combine(scheduleDatesMap) { day, map -> map[day] }
         .distinctUntilChanged()
         .flowOn(dispatcher.io)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
@@ -106,6 +100,11 @@ class ScheduleDetailScreenVM @Inject constructor(
         .distinctUntilChanged()
         .flowOn(dispatcher.io)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), Duration.ZERO)
+
+    private val _currentUpdatingTimeSlot =
+        MutableStateFlow<Schedule.DateInput.TimeSlotsInput?>(null)
+    val currentUpdatingTimeSlot: StateFlow<Schedule.DateInput.TimeSlotsInput?> =
+        _currentUpdatingTimeSlot
 
     init {
         viewModelScope.launch(dispatcher.io) {
@@ -122,7 +121,17 @@ class ScheduleDetailScreenVM @Inject constructor(
         _selectedDay.value = date
     }
 
-    fun createTimeSlots() {
+    fun onCreateOrUpdateTimeSlot() {
+        if (_currentUpdatingTimeSlot.value != null) {
+            updateCurrentTimeSlot()
+        } else {
+            createTimeSlot()
+        }
+    }
+
+    fun createTimeSlot() {
+        if (_selectedControlledApps.value.isEmpty()) return
+        val selectedControlledApps = _selectedControlledApps.value
         viewModelScope.launch(dispatcher.io) {
             val dateInput = Schedule.DateInput(
                 date = _selectedDay.value,
@@ -132,7 +141,7 @@ class ScheduleDetailScreenVM @Inject constructor(
                 start = _selectedTimeSlot.value.first,
                 end = _selectedTimeSlot.value.second,
             )
-            val blockedAppsInput = _selectedControlledApps.value.map { app ->
+            val blockedAppsInput = selectedControlledApps.map { app ->
                 Schedule.DateInput.TimeSlotsInput.BlockedAppsInput(
                     id = 0,
                     name = app.name,
@@ -143,10 +152,6 @@ class ScheduleDetailScreenVM @Inject constructor(
             clearNewTimeSlotData()
             createTimeSlotUseCase.invoke(dateInput, timeSlotsInput, blockedAppsInput)
         }
-    }
-
-    fun onTimeSlotDialogToggle() {
-        _isTimeSlotDialogVisible.value = !_isTimeSlotDialogVisible.value
     }
 
     fun onSelectTimeSlot(start: LocalTime, end: LocalTime) {
@@ -163,13 +168,69 @@ class ScheduleDetailScreenVM @Inject constructor(
         }
     }
 
-    fun clearNewTimeSlotData() {
-        _selectedControlledApps.update { LinkedHashSet() }
-        _selectedTimeSlot.value = LocalTime.now() to LocalTime.now().plusHours(1)
-        _isTimeSlotDialogVisible.value = false
+    fun selectCurrentUpdatingTimeSlot(timeSlot: TimeSlotItem) {
+        val slot = timeSlot.timeSlot
+        _currentUpdatingTimeSlot.value = slot
+        _selectedTimeSlot.value = slot.start to slot.end
+        val currentBlockedApps = timeSlot.blockedApps.map { it.packageName }.toSet()
+        _selectedControlledApps.value = LinkedHashSet<AppUsageInfo>().apply {
+            addAll(controlledApps.value.filter { it.packageName in currentBlockedApps })
+        }
     }
 
-    private fun calculateTotalBlockedHours(timeSlots: List<Schedule.DateInput.TimeSlotsInput>): Duration {
+    fun updateCurrentTimeSlot() {
+        if (_currentUpdatingTimeSlot.value == null) return
+        if (_selectedControlledApps.value.isEmpty()) return
+        val timeSlot = _currentUpdatingTimeSlot.value!!.copy(
+            start = _selectedTimeSlot.value.first,
+            end = _selectedTimeSlot.value.second,
+        )
+        val blockedAppsInput = _selectedControlledApps.value
+
+        viewModelScope.launch(dispatcher.io) {
+            clearNewTimeSlotData()
+            updateTimeSlotUseCase.invoke(
+                timeSlotsInput = Schedule.DateInput.TimeSlotsInput(
+                    id = timeSlot.id,
+                    start = _selectedTimeSlot.value.first,
+                    end = _selectedTimeSlot.value.second,
+                ),
+                blockedAppList = blockedAppsInput.map { app ->
+                    Schedule.DateInput.TimeSlotsInput.BlockedAppsInput(
+                        id = 0,
+                        name = app.name,
+                        packageName = app.packageName,
+                        timeSlotId = timeSlot.id,
+                    )
+                }
+            )
+        }
+    }
+
+    fun onDeleteTimeSlot() {
+        if (_currentUpdatingTimeSlot.value == null) return
+        val timeslot = _currentUpdatingTimeSlot.value!!
+        clearNewTimeSlotData()
+        viewModelScope.launch(dispatcher.io) {
+            deleteTimeSlotUseCase.invoke(
+                Schedule.DateInput.TimeSlotsInput(
+                    id = timeslot.id,
+                    start = timeslot.start,
+                    end = timeslot.end,
+                )
+            )
+        }
+    }
+
+    fun clearNewTimeSlotData() {
+        _selectedControlledApps.update { LinkedHashSet() }
+        _currentUpdatingTimeSlot.value = null
+        _selectedTimeSlot.value = LocalTime.now() to LocalTime.now().plusHours(1)
+    }
+
+    private fun calculateTotalBlockedHours(
+        timeSlots: List<Schedule.DateInput.TimeSlotsInput>
+    ): Duration {
         if (timeSlots.isEmpty()) return Duration.ZERO
 
         val sorted = timeSlots.sortedBy { it.start }
@@ -194,5 +255,4 @@ class ScheduleDetailScreenVM @Inject constructor(
             acc + Duration.between(start, end)
         }
     }
-
 }

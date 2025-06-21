@@ -13,7 +13,7 @@ val RemoveRed = Color(0xFFFF5252)
 val TextPrimary = Color(0xFF333333)
 val TextSecondary = Color(0xFF888888)
 val Pink = Color(0xFFE50F5E)
-
+val Red = Color(0xFFED5E68)
 val AquaBlueBorder = Color(0XFF099ABB)
 val WhiteColor = Color.White
 val TextButtonColor = Color(0XFF70777D)

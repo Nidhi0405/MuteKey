@@ -20,4 +20,14 @@
     <string name="nav_item_profile">Profile</string>
     <string name="prev">Prev</string>
     <string name="next">Next</string>
+    <string name="add">Add</string>
+    <string name="delete">Delete</string>
+    <string name="update">Update\n</string>
+    <string name="ok">Ok</string>
+    <string name="you_can_t_update_this_time_slot_because_the_schedule_is_currently_active">You can\'t update this time slot because the schedule is currently active.</string>
+    <string name="unable_to_update_time_slot">Unable to Update Time Slot</string>
+    <string name="action_not_allowed">Action Not Allowed</string>
+    <string name="past_time_slots_cannot_be_updated_or_deleted">Past time slots cannot be updated or deleted.</string>
+    <string name="select_start_time">Select Start Time</string>
+    <string name="select_end_time">Select End Time</string>
 </resources>

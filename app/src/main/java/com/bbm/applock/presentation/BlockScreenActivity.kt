@@ -24,39 +24,51 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.ImageLoader
 import com.bbm.applock.R
+import com.bbm.applock.hiltmodule.ComponentActivityInjectModule
 import com.bbm.applock.service.AppBlockAccessibilityService
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.TextPrimaryGradient
 import com.bbm.applock.ui.theme.WhiteColor
+import dagger.hilt.android.EntryPointAccessors
 
-//@AndroidEntryPoint
+
 class BlockScreenActivity : ComponentActivity() {
 
     companion object {
         private const val PACKAGE_NAME = "packageName"
-        fun getIntent(context: Context, packageName: String) =
+        fun instance(context: Context, packageName: String) =
             Intent(context, BlockScreenActivity::class.java).apply {
                 putExtra(PACKAGE_NAME, packageName)
             }
     }
 
-    private val blockedPackageName by lazy { intent.getStringExtra(PACKAGE_NAME) }
+    private val imageLoader: ImageLoader by lazy {
+        EntryPointAccessors.fromApplication(
+            applicationContext, ComponentActivityInjectModule::class.java
+        ).imageLoader()
+    }
 
-    /*    @Inject
-        lateinit var imageLoader: ImageLoader*/
+    private val blockedPackageName by lazy { intent.getStringExtra(PACKAGE_NAME) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             AppLockTheme {
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.DarkGray.copy(alpha = .8f))
+                ) {
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 24.dp)
@@ -68,11 +80,32 @@ class BlockScreenActivity : ComponentActivity() {
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Image(
-                                painter = painterResource(R.drawable.img_thumbs_up),
-                                contentDescription = null,
-                                modifier = Modifier.size(120.dp)
-                            )
+                            Box(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                /*Image(
+                                    painter = rememberAsyncImagePainter(
+                                        AppIcon(blockedPackageName!!),
+                                        imageLoader = imageLoader
+                                    ),
+                                    contentScale = ContentScale.Fit,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .padding(start = 40.dp)
+                                        .size(80.dp)
+                                        .clip(CircleShape)
+                                )*/
+                                Image(
+                                    painter = painterResource(R.drawable.img_thumbs_up),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        // .padding(end = 40.dp)
+                                        .size(120.dp)
+                                )
+
+                            }
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 text = "You’re doing great!",
@@ -84,7 +117,7 @@ class BlockScreenActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxWidth(),
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(Modifier.height(2.dp))
+                            Spacer(Modifier.height(4.dp))
                             Text(
                                 text = "Hang in there — your restricted time will end shortly. Stay committed to your routine; success is built one disciplined hour at a time.",
                                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -94,7 +127,7 @@ class BlockScreenActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxWidth(),
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(8.dp))
                             Button(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -105,7 +138,7 @@ class BlockScreenActivity : ComponentActivity() {
                                 colors = ButtonDefaults.buttonColors(containerColor = AquaBlue)
                             ) {
                                 Text(
-                                    "OK",
+                                    text = stringResource(R.string.ok),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = WhiteColor,
                                         fontSize = 18.sp,
@@ -123,7 +156,6 @@ class BlockScreenActivity : ComponentActivity() {
 
     @SuppressLint("MissingSuperCall")
     override fun onBackPressed() {
-        // Optional: disable back press
         AppBlockAccessibilityService.instance?.removeAppFromScreen()
         finishAffinity()
     }

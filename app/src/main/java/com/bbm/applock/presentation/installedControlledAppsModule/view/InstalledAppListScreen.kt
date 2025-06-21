@@ -1,9 +1,14 @@
 package com.bbm.applock.presentation.installedControlledAppsModule.view
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
@@ -52,6 +58,7 @@ import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAp
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.util.AppIcon
+import com.bbm.applock.util.FullScreenLoader
 import com.bbm.applock.util.LifeCycleEvent
 import com.bbm.applock.util.MultiDevicePreview
 import com.bbm.applock.util.ScreenSurface
@@ -67,6 +74,20 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
     val searchText = vm.searchText.collectAsState()
     val appList = vm.installedAppList.collectAsState()
     val imageLoader = vm.imageLoader
+
+    val notificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.POST_NOTIFICATIONS
+    } else {
+        null
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            vm.checkPermission()
+        }
+    }
+
 
     when (state.value) {
         is UiState.Failure<*> -> {
@@ -114,7 +135,17 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
         onClickPermission = {
             when (it.permissionType) {
                 PermissionInfo.PermissionType.NOTIFICATION -> {
-
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                        && !notificationPermission.isNullOrEmpty()
+                    ) {
+                        if (ContextCompat.checkSelfPermission(
+                                context,
+                                notificationPermission
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            permissionLauncher.launch(notificationPermission)
+                        }
+                    }
                 }
 
                 PermissionInfo.PermissionType.USAGE -> {
@@ -161,55 +192,59 @@ private fun InstalledAppListScreenContent(
     onClickPermission: (PermissionInfo.Permission) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
-        PermissionContent(
-            permission,
-            click = onClickPermission,
-            modifier = Modifier.padding(horizontal = 18.dp)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        SearchBar(
-            query = searchText,
-            onTextChange = onTextChange,
-            onSearchClick = onSearchClick,
-            modifier = Modifier.padding(horizontal = 18.dp)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
+    FullScreenLoader(
+        isLoading = isLoading
+    ) {
+        Column(modifier = modifier) {
+            PermissionContent(
+                permission,
+                click = onClickPermission,
+                modifier = Modifier.padding(horizontal = 18.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            SearchBar(
+                query = searchText,
+                onTextChange = onTextChange,
+                onSearchClick = onSearchClick,
+                modifier = Modifier.padding(horizontal = 18.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 56.dp, end = 30.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                "Most Used Apps",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 12.sp,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 56.dp, end = 30.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Most Used Apps",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 12.sp,
+                    )
                 )
-            )
-            Text(
-                "Hours/Week",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 12.sp,
+                Text(
+                    "Hours/Week",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 12.sp,
+                    )
                 )
-            )
-        }
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 30.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(appList.size) {
-                AppUsageRow(
-                    appList[it],
-                    painter.invoke(appList[it]),
-                    onAddToControlledApp = {
-                        onAddOrRemoveControlledApp(appList[it])
-                    },
-                    modifier = Modifier
-                )
+            }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 30.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(appList.size) {
+                    AppUsageRow(
+                        appList[it],
+                        painter.invoke(appList[it]),
+                        onAddToControlledApp = {
+                            onAddOrRemoveControlledApp(appList[it])
+                        },
+                        modifier = Modifier
+                    )
+                }
             }
         }
     }
@@ -354,8 +389,9 @@ fun AppUsageRow(
                 val totalScreenTime =
                     info.totalScreenTime?.timeInMillis?.takeIf { it > 0 }
                         ?: (7 * 24 * 60 * 60 * 1000L)
-                val width =
-                    maxWidth * (info.usageTimeInMillis / totalScreenTime.toFloat()).coerceIn(0f, 1f)
+                val usagePercent =
+                    (info.usageTimeInMillis / totalScreenTime.toFloat()).coerceIn(0f, 1f)
+                val width = maxWidth * usagePercent
                 Box(
                     modifier = Modifier
                         .width(width)
