@@ -2,8 +2,10 @@ package com.bbm.applock.presentation.analyticsModule.vm
 
 import android.util.Log
 import androidx.lifecycle.viewModelScope
+import coil3.ImageLoader
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.usecase.GetDailyAppUsageForChartUseCase
+import com.applock.domain.usecase.GetHourlyUsageMapUseCase
 import com.applock.domain.usecase.SyncInstalledAppsUseCase
 import com.bbm.applock.dispatcher.CoroutineDispatcherProvider
 import com.bbm.applock.presentation.UiState
@@ -23,13 +25,16 @@ import javax.inject.Inject
 class AnalyticsVm @Inject constructor(
     private val dispatchers: CoroutineDispatcherProvider,
     private val syncInstalledAppsUseCase: SyncInstalledAppsUseCase,
-    private val getDailyAppUsageForChartUseCase: GetDailyAppUsageForChartUseCase
+    private val getDailyAppUsageForChartUseCase: GetDailyAppUsageForChartUseCase,
+    private val getHourlyUsageMapUseCase: GetHourlyUsageMapUseCase,
+    val imageLoader: ImageLoader,
 ) : BaseVM() {
 
     private var _installedApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
     var installedApps : StateFlow<List<AppUsageInfo>> = _installedApps
     val chartJson = MutableStateFlow("")
-
+    private val _hourlyUsageMap = MutableStateFlow<Map<String, List<Long>>>(emptyMap())
+    val hourlyUsageMap: StateFlow<Map<String, List<Long>>> get() = _hourlyUsageMap
 
     fun syncAndGetInstalledApps(days: Int) {
         viewModelScope.launch(dispatchers.io) {
@@ -95,6 +100,13 @@ class AnalyticsVm @Inject constructor(
                 e.printStackTrace()
                 Log.e("AnalyticsVm", "Error in fetchAndGenerateChartJson: ${e.message}", e)
             }
+        }
+    }
+
+    fun syncHourlyUsage(days: Int) {
+        viewModelScope.launch(dispatchers.io) {
+            val map = getHourlyUsageMapUseCase.invoke(days)
+            _hourlyUsageMap.value = map
         }
     }
 }
