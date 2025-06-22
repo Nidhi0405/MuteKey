@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.bbm.applock"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -90,6 +90,8 @@ dependencies {
     kapt(libs.androidx.room.compiler)
 
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+    //calender
+    implementation(libs.compose)
 
     //modules
     implementation(project(mapOf("path" to ":domain")))

@@ -1,12 +1,18 @@
 package com.applock.domain.usecase
 
-import com.applock.domain.repo.LocalAppRepo
+import com.applock.domain.repo.ScheduleRepo
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 class IsCurrentlyBlockedAppUseCase @Inject constructor(
-    private val localAppRepo: LocalAppRepo
+    private val localAppRepo: ScheduleRepo
 ) {
-    suspend operator fun invoke(packageName: String): Boolean {
-        return localAppRepo.isCurrentlyBlockedApp(packageName)
+    suspend operator fun invoke(
+        packageName: String,
+        date: LocalDate,
+        time: LocalTime,
+    ): Boolean {
+        return localAppRepo.isCurrentlyBlockedApp(packageName, date, time)
     }
 }

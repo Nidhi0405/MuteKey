@@ -60,11 +60,11 @@ class SystemAppRepoImpl @Inject constructor(
             try {
                 val appInfo = pm.getApplicationInfo(pkg, 0)
                 val launchIntent = pm.getLaunchIntentForPackage(pkg)
-                totalScreenTime.timeInMillis += totalUsage
                 if (pkg != context.packageName // to skip our app
                     && launchIntent != null
                     && totalUsage >= 0
                 ) {
+                    totalScreenTime.timeInMillis += totalUsage
                     val appName = pm.getApplicationLabel(appInfo).toString()
                     appUsageList.add(
                         AppUsageInfo(

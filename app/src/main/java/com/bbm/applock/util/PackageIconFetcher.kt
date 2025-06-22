@@ -16,9 +16,8 @@ import coil3.request.Options
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.size.pxOrElse
-import com.applock.domain.model.AppUsageInfo
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 data class AppIcon(val packageName: String)
@@ -30,18 +29,20 @@ class AppIconFetcher(
 ) : Fetcher {
 
     override suspend fun fetch(): FetchResult {
-        val drawable: Drawable = context.packageManager.getApplicationIcon(appIcon.packageName)
-        val bitmap: Bitmap = drawable.toBitmap(
-            width = options.size.width.pxOrElse { 128 },
-            height = options.size.height.pxOrElse { 128 },
-            config = Bitmap.Config.ARGB_8888
-        )
+        return withContext(Dispatchers.IO) {
+            val drawable: Drawable = context.packageManager.getApplicationIcon(appIcon.packageName)
+            val bitmap: Bitmap = drawable.toBitmap(
+                width = options.size.width.pxOrElse { 128 },
+                height = options.size.height.pxOrElse { 128 },
+                config = Bitmap.Config.ARGB_8888
+            )
 
-        return ImageFetchResult(
-            image = bitmap.asImage(),
-            isSampled = false,
-            dataSource = DataSource.DISK
-        )
+            ImageFetchResult(
+                image = bitmap.asImage(),
+                isSampled = false,
+                dataSource = DataSource.DISK
+            )
+        }
     }
 
 

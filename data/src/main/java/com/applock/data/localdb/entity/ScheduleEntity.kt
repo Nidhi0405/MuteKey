@@ -7,6 +7,8 @@ import androidx.room.ForeignKey.Companion.CASCADE
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
+import java.time.LocalDate
+import java.time.LocalTime
 
 
 @Entity(tableName = "schedule_table")
@@ -33,8 +35,8 @@ data class ScheduleEntity(
 data class DateEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val scheduleId: Int,
-    val epochDate: Long
+    val epochDate: LocalDate,
+    val scheduleId: Int
 )
 
 @Entity(
@@ -53,8 +55,8 @@ data class DateEntity(
 data class TimeSlotEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val startTime: Long,
-    val endTime: Long,
+    val startTime: LocalTime,
+    val endTime: LocalTime,
     val dateId: Int
 )
 
@@ -83,18 +85,9 @@ data class BlockedAppEntity(
 /**
  * Mapper classes for Query
  * */
-data class BlockedAppItem(
-    val id: Int,
-    val name: String,
-    val packageName: String,
-    val timeSlotId: Int
-)
-
-data class TimeSlotItem(
-    val id: Int,
-    val startTime: Long,
-    val endTime: Long,
-    val dateId: Int,
+data class TimeSlotItemDTO(
+    @Embedded
+    val timeSlot: TimeSlotEntity,
     @Relation(
         parentColumn = "id",
         entityColumn = "timeSlotId"
@@ -102,19 +95,18 @@ data class TimeSlotItem(
     val blockedApps: List<BlockedAppEntity>
 )
 
-data class DateItem(
-    val id: Int,
-    val scheduleId: Int,
-    val epochDate: Long,
+data class DateItemDTO(
+    @Embedded
+    val date: DateEntity,
     @Relation(
         parentColumn = "id",
         entityColumn = "dateId",
         entity = TimeSlotEntity::class
     )
-    val timeSlots: List<TimeSlotItem>
+    val timeSlots: List<TimeSlotItemDTO>
 )
 
-data class ScheduleWithDates(
+data class ScheduleWithDatesDTO(
     @Embedded
     val schedule: ScheduleEntity,
     @Relation(
@@ -122,5 +114,5 @@ data class ScheduleWithDates(
         entityColumn = "scheduleId",
         entity = DateEntity::class
     )
-    val dates: List<DateItem>
+    val dates: List<DateItemDTO>
 )
