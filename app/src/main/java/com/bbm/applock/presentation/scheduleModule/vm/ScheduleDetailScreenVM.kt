@@ -169,12 +169,14 @@ class ScheduleDetailScreenVM @Inject constructor(
     }
 
     fun selectCurrentUpdatingTimeSlot(timeSlot: TimeSlotItem) {
-        val slot = timeSlot.timeSlot
-        _currentUpdatingTimeSlot.value = slot
-        _selectedTimeSlot.value = slot.start to slot.end
-        val currentBlockedApps = timeSlot.blockedApps.map { it.packageName }.toSet()
-        _selectedControlledApps.value = LinkedHashSet<AppUsageInfo>().apply {
-            addAll(controlledApps.value.filter { it.packageName in currentBlockedApps })
+        viewModelScope.launch(dispatcher.default) {
+            val slot = timeSlot.timeSlot
+            _currentUpdatingTimeSlot.value = slot
+            _selectedTimeSlot.value = slot.start to slot.end
+            val currentBlockedApps = timeSlot.blockedApps.map { it.packageName }.toSet()
+            _selectedControlledApps.value = LinkedHashSet<AppUsageInfo>().apply {
+                addAll(controlledApps.value.filter { it.packageName in currentBlockedApps })
+            }
         }
     }
 
@@ -194,6 +196,7 @@ class ScheduleDetailScreenVM @Inject constructor(
                     id = timeSlot.id,
                     start = _selectedTimeSlot.value.first,
                     end = _selectedTimeSlot.value.second,
+                    dateId = timeSlot.dateId
                 ),
                 blockedAppList = blockedAppsInput.map { app ->
                     Schedule.DateInput.TimeSlotsInput.BlockedAppsInput(
