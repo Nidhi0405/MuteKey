@@ -10,6 +10,7 @@ import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.base.BaseVM
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -25,7 +26,8 @@ class AnalyticsVm @Inject constructor(
     private val getDailyAppUsageForChartUseCase: GetDailyAppUsageForChartUseCase
 ) : BaseVM() {
 
-    var installedApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
+    private var _installedApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
+    var installedApps : StateFlow<List<AppUsageInfo>> = _installedApps
     val chartJson = MutableStateFlow("")
 
 
@@ -33,7 +35,7 @@ class AnalyticsVm @Inject constructor(
         viewModelScope.launch(dispatchers.io) {
             _state.emit(UiState.Loading)
             val list = syncInstalledAppsUseCase.invoke(days)
-            installedApps.value = list
+            _installedApps.value = list
             _state.emit(UiState.Success(list, "success"))
         }
     }

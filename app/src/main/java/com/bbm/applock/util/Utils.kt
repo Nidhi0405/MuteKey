@@ -1,19 +1,14 @@
 package com.bbm.applock.util
 
+import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import android.graphics.Bitmap
-import android.util.Base64
-import java.io.ByteArrayOutputStream
-import android.content.Context
-import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
-import android.util.Log
-import android.webkit.WebSettings
-import android.webkit.WebView
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 
@@ -43,7 +38,7 @@ inline fun Modifier.noRippleClickable(
 fun getAppIconDrawable(context: Context, packageName: String): Drawable? {
     return try {
         val drawable = context.packageManager.getApplicationIcon(packageName)
-        val bitmap = drawable.toBitmap(width = 48, height = 48)
+        val bitmap = drawable.toBitmap(width = 128, height = 128)
         bitmap.toDrawable(context.resources)
     } catch (e: PackageManager.NameNotFoundException) {
         Log.w("AppIcon", "Icon not found for package: $packageName", e)
