@@ -2,6 +2,7 @@ package com.applock.domain.usecase
 
 import com.applock.domain.model.Schedule
 import com.applock.domain.repo.ScheduleRepo
+import com.applock.domain.util.result
 import javax.inject.Inject
 
 class CreateScheduleUseCase @Inject constructor(
@@ -14,11 +15,8 @@ class CreateScheduleUseCase @Inject constructor(
         if (scheduleName.length !in 1..20) {
             return Result.failure(Throwable("Schedule name must me 1 to 20 characters"))
         }
-        return try {
+        return result {
             repo.createSchedule(Schedule(name = scheduleName))
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
         }
     }
 }
