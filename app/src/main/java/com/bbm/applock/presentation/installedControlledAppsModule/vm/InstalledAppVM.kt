@@ -1,6 +1,7 @@
 package com.bbm.applock.presentation.installedControlledAppsModule.vm
 
 import androidx.lifecycle.viewModelScope
+import coil3.ImageLoader
 import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.PermissionInfo
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -27,7 +29,8 @@ class InstalledAppVM @Inject constructor(
     private val syncInstalledAppsUseCase: SyncInstalledAppsUseCase,
     private val addControlledAppUseCase: AddControlledAppUseCase,
     private val deleteControlledAppUseCase: DeleteControlledAppUseCase,
-    private val permissionUseCase: PermissionUseCase
+    private val permissionUseCase: PermissionUseCase,
+    val imageLoader: ImageLoader,
 ) : BaseVM() {
 
     init {
@@ -47,6 +50,7 @@ class InstalledAppVM @Inject constructor(
             if (query.trim().isBlank()) apps
             else apps.filter { it.name.contains(query.trim(), ignoreCase = true) }
         }
+        .flowOn(dispatchers.default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
     fun checkPermission() {
@@ -72,10 +76,16 @@ class InstalledAppVM @Inject constructor(
         viewModelScope.launch(dispatchers.io) {
             _state.emit(UiState.Loading)
             val list = syncInstalledAppsUseCase.invoke(7)
-            _installedApps.value = list
+            _installedApps.value = list.sortedByDescending { it.usageTimeInMillis }
+            //"total time =====  ${_installedApps.value.first().totalScreenTime?.timeInMillis?.millisToMinutesDecimal}".logE()
             _state.emit(UiState.Success(list, "success"))
         }
     }
+
+    val Long.millisToMinutesDecimal: Double
+        get() {
+            return this / 60_000.0
+        }
 
     fun onSearchTextChange(value: String) {
         _searchText.value = value

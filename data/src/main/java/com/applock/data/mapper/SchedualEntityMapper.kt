@@ -13,6 +13,7 @@ fun ScheduleEntity.toDomain(): Schedule {
 
 fun Schedule.toScheduleEntity(): ScheduleEntity {
     return ScheduleEntity(
+        id = id,
         name = name,
         isActive = isActive
     )

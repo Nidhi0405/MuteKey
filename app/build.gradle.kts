@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.bbm.applock"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -88,6 +88,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
+
+    //calender
+    implementation(libs.compose)
 
     //modules
     implementation(project(mapOf("path" to ":domain")))
