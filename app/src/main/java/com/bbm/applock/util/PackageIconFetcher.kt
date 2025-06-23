@@ -41,7 +41,6 @@ class AppIconFetcher(
         }
     }
 
-
     class Factory(private val context: Context) : Fetcher.Factory<AppIcon> {
         override fun create(
             data: AppIcon,

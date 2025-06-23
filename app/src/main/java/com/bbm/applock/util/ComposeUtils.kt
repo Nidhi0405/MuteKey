@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,9 +35,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.bbm.applock.R
 import com.bbm.applock.ui.theme.AppLockTheme
+import com.bbm.applock.ui.theme.TextButtonColor
+import com.bbm.applock.ui.theme.TextPrimary
 
 
 @Composable
@@ -92,8 +97,7 @@ fun SearchBar(
 ) {
     Card(
         modifier = modifier
-            .height(32.dp)
-            .height(82.dp),
+            .height(42.dp),
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.cardElevation(4.dp),
         colors = CardDefaults.cardColors(Color.White)
@@ -117,7 +121,10 @@ fun SearchBar(
                 onValueChange = onTextChange,
                 textStyle = MaterialTheme.typography
                     .labelMedium
-                    .copy(fontSize = 14.sp, fontWeight = FontWeight.W200),
+                    .copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W400
+                    ),
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -129,7 +136,10 @@ fun SearchBar(
                         stringResource(R.string.hint_search),
                         style = MaterialTheme.typography
                             .labelMedium
-                            .copy(fontSize = 14.sp, fontWeight = FontWeight.W200)
+                            .copy(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W400
+                            )
                     )
                 innerTextField()
             }
@@ -146,9 +156,9 @@ fun SearchBar(
                     text = stringResource(R.string.search),
                     style = MaterialTheme.typography
                         .labelMedium
-                        .copy(fontSize = 10.sp, color = Color.White),
+                        .copy(fontSize = 14.sp, color = Color.White),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
             }
         }
@@ -165,5 +175,56 @@ private fun SearchBarPreview() {
             {},
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+@Composable
+fun AlertDialogWithOneAction(
+    title: String,
+    description: String,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0XFFF1FCFF))
+                .padding(vertical = 10.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W600,
+                )
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W400,
+                )
+            )
+
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text(
+                    text = stringResource(R.string.ok),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W600,
+                        color = TextButtonColor
+                    )
+                )
+            }
+        }
     }
 }

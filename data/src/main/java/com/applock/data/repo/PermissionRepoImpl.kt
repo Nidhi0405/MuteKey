@@ -27,7 +27,9 @@ class PermissionRepoImpl @Inject internal constructor(
         )
 
         val config = PermissionsConfiguration.Builder()
-            .addPermissionConfig(PermissionConfig(permissionType = PermissionTypeDTO.USAGE))
+            .addPermissionConfig(
+                PermissionConfig(permissionType = PermissionTypeDTO.USAGE)
+            )
             .addPermissionConfig(
                 PermissionConfig(
                     permissionType = PermissionTypeDTO.ACCESSIBILITY,
@@ -38,7 +40,7 @@ class PermissionRepoImpl @Inject internal constructor(
                 PermissionConfig(
                     permissionType = PermissionTypeDTO.AUTO_START,
                     supportedDevices = autoStartDevices,
-                    isOptional = true,
+                    isOptional = false,
                     isSupportedByDevice = {
                         permissionsClient.isAutoStartSupportedByDevice(
                             devices = autoStartDevices,

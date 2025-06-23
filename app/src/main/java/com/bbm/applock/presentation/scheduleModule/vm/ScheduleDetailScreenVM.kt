@@ -3,6 +3,8 @@ package com.bbm.applock.presentation.scheduleModule.vm
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
+import com.applock.core.logE
+import com.applock.core.logI
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.Schedule
 import com.applock.domain.model.ScheduleWithDates
@@ -206,7 +208,11 @@ class ScheduleDetailScreenVM @Inject constructor(
                         timeSlotId = timeSlot.id,
                     )
                 }
-            )
+            ).fold(onSuccess = {
+                "TimeSlot: ${timeSlot.id} is updated.".logI()
+            }, onFailure = {
+                it.stackTraceToString().logE()
+            })
         }
     }
 

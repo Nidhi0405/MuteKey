@@ -6,6 +6,7 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
+import com.applock.core.isValidPackage
 import com.applock.core.logE
 import com.applock.domain.usecase.IsCurrentlyBlockedAppUseCase
 import com.bbm.applock.hiltmodule.AppBlockAccessibilityModule
@@ -13,75 +14,93 @@ import com.bbm.applock.presentation.BlockScreenActivity
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalTime
 
-class AppBlockAccessibilityService : AccessibilityService() {
 
-    //var currentAppActivityList = mutableSetOf<String>()
+fun throttleStringInput(
+    scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    delayMillis: Long = 1000L,
+    action: (String) -> Unit
+): (String) -> Unit {
+    var job: Job? = null
+
+    return { input ->
+        job?.cancel()
+        job = scope.launch {
+            delay(delayMillis)
+            action.invoke(input)
+        }
+    }
+}
+
+class AppBlockAccessibilityService : AccessibilityService() {
+    // var currentAppActivityList = mutableSetOf<String>()
     val mUsageStatsManager by lazy { getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager }
 
     private val info = AccessibilityServiceInfo()
 
+    val throttledInput = throttleStringInput { packageName ->
+        println("Action triggered with: $packageName")
+        CoroutineScope(Dispatchers.IO).launch {
+            val rootWindow = rootInActiveWindow
+            val windowPkgName = rootWindow?.packageName?.toString().orEmpty()
+            if (windowPkgName != packageName) return@launch
+            val isBlocked = isCurrentlyBlockedApp.invoke(
+                packageName,
+                LocalDate.now(),
+                LocalTime.now()
+            )
+            val time = System.currentTimeMillis()
+            val usageEvents = mUsageStatsManager.queryEvents(time - 1500, time)
+            val usageEvent = UsageEvents.Event()
+            println("Action triggered with $packageName isBlocked: $isBlocked")
+            while (isBlocked && usageEvents.hasNextEvent()) {
+                usageEvents.getNextEvent(usageEvent)
+                if (usageEvent.packageName == packageName) {
+                    when (usageEvent.eventType) {
+                        UsageEvents.Event.ACTIVITY_RESUMED -> {
+                            withContext(Dispatchers.Main) {
+                                println("Action triggered with $packageName isBlocked: $isBlocked open")
+                                openBlockScreen(packageName)
+                            }
+                            break
+                        }
+
+                        UsageEvents.Event.ACTIVITY_STOPPED -> {
+                            _finishEvent.emit(Unit)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     companion object {
+        private val _finishEvent = MutableSharedFlow<Unit>()
+        val finishEvent: SharedFlow<Unit> = _finishEvent
         var instance: AppBlockAccessibilityService? = null
     }
 
     private val isCurrentlyBlockedApp: IsCurrentlyBlockedAppUseCase by lazy {
-        EntryPointAccessors.fromApplication(
-            applicationContext, AppBlockAccessibilityModule::class.java
+        EntryPointAccessors.fromApplication<AppBlockAccessibilityModule>(
+            context = applicationContext,
+            entryPoint = AppBlockAccessibilityModule::class.java
         ).isCurrentlyBlockedAppUseCase()
     }
 
-    private var lastActionedPackage: String = ""
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         try {
-
-
             if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 val packageName = event.packageName?.toString().orEmpty()
-                if (!packageName.isValidPackage) return
-                CoroutineScope(Dispatchers.IO).launch {
-                    val isBlocked = isCurrentlyBlockedApp.invoke(
-                        packageName,
-                        LocalDate.now(),
-                        LocalTime.now()
-                    )
-                    val time = System.currentTimeMillis()
-                    val usageEvents = mUsageStatsManager.queryEvents(time - 800, time)
-                    val usageEvent = UsageEvents.Event()
-                    while (isBlocked && usageEvents.hasNextEvent()) {
-                        usageEvents.getNextEvent(usageEvent)
-                        if (usageEvent.packageName == packageName) {
-                            when {
-                                usageEvent.eventType == UsageEvents.Event.ACTIVITY_RESUMED
-                                    /*&& currentAppActivityList.isEmpty() */ -> {
-                                    //currentAppActivityList.add(usageEvent.className)
-                                    withContext(Dispatchers.Main) {
-                                        openBlockScreen(packageName)
-                                    }
-                                    break
-                                }
-
-                                /*usageEvent.eventType == UsageEvents.Event.ACTIVITY_RESUMED -> {
-                                    if (!currentAppActivityList.contains(usageEvent.className)) {
-                                        currentAppActivityList.add(usageEvent.className)
-                                        ("$currentAppActivityList-----List--added").logE()
-                                    }
-                                }
-
-                                usageEvent.eventType == UsageEvents.Event.ACTIVITY_STOPPED -> {
-                                    if (currentAppActivityList.contains(usageEvent.className)) {
-                                        currentAppActivityList.remove(usageEvent.className)
-                                        ("$currentAppActivityList-----List--remained").logE()
-                                    }
-                                }*/
-                            }
-                        }
-                    }
-                }
+                if (!packageName.isValidPackage(this)) return
+                throttledInput.invoke(packageName)
             }
         } catch (e: Exception) {
             e.stackTraceToString().logE()
@@ -90,8 +109,12 @@ class AppBlockAccessibilityService : AccessibilityService() {
 
     private fun openBlockScreen(packageName: String) {
         val intent = BlockScreenActivity.instance(this, packageName).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            //addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+            //addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         startActivity(intent)
     }
@@ -119,16 +142,4 @@ class AppBlockAccessibilityService : AccessibilityService() {
         instance = null
         super.onDestroy()
     }
-
-    val String.isValidPackage: Boolean
-        get() {
-            if (this in listOf(
-                    "com.android.systemui",
-                    "com.google.android.googlequicksearchbox"
-                )
-            ) return false
-            if (this.contains("launcher")) return false
-            if (this == this@AppBlockAccessibilityService.packageName) return false
-            return true
-        }
 }

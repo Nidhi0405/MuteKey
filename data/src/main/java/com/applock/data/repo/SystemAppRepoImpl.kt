@@ -4,6 +4,7 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Context.USAGE_STATS_SERVICE
 import android.content.pm.PackageManager
+import com.applock.core.isValidPackage
 import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.TotalScreenTime
@@ -19,7 +20,7 @@ class SystemAppRepoImpl @Inject constructor(
             val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
             return apps.filter { appInfo ->
                 val launchIntent = pm.getLaunchIntentForPackage(appInfo.packageName)
-                appInfo.packageName != context.packageName // to skip our app
+                appInfo.packageName.isValidPackage(context)
                         && launchIntent != null
             }.map {
                 AppUsageInfo(
@@ -63,7 +64,7 @@ class SystemAppRepoImpl @Inject constructor(
             try {
                 val appInfo = pm.getApplicationInfo(pkg, 0)
                 val launchIntent = pm.getLaunchIntentForPackage(pkg)
-                if (pkg != context.packageName // to skip our app
+                if (pkg.isValidPackage(context) // to skip our app
                     && launchIntent != null
                     && totalUsage >= 0
                 ) {

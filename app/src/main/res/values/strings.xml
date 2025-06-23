@@ -30,4 +30,6 @@
     <string name="past_time_slots_cannot_be_updated_or_deleted">Past time slots cannot be updated or deleted.</string>
     <string name="select_start_time">Select Start Time</string>
     <string name="select_end_time">Select End Time</string>
+    <string name="can_not_turn_of_active_schedule">Cannot turn off schedule while it has active time slots.</string>
+    <string name="can_not_delete_active_schedule">Cannot delete schedule while it has active time slots</string>
 </resources>

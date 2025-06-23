@@ -28,7 +28,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,7 +50,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil3.compose.rememberAsyncImagePainter
 import com.applock.core.logE
 import com.applock.domain.model.AppUsageInfo
@@ -66,10 +64,10 @@ import com.bbm.applock.presentation.scheduleModule.vm.ScheduleDetailScreenVM
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.AquaBlueLight
-import com.bbm.applock.ui.theme.TextButtonColor
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.ui.theme.WhiteColor
+import com.bbm.applock.util.AlertDialogWithOneAction
 import com.bbm.applock.util.AppIcon
 import com.bbm.applock.util.CalenderViewType
 import com.bbm.applock.util.MultiDevicePreview
@@ -339,7 +337,7 @@ fun ScheduleDetailScreenContent(
         }
 
         if (showActiveTimeSlotUpdateError) {
-            TimeSlotUpdateErrorDialog(
+            AlertDialogWithOneAction(
                 title = stringResource(R.string.unable_to_update_time_slot),
                 description = stringResource(R.string.you_can_t_update_this_time_slot_because_the_schedule_is_currently_active),
                 onDismiss = {
@@ -349,63 +347,11 @@ fun ScheduleDetailScreenContent(
         }
 
         if (showPastTimeSlotUpdateError) {
-            TimeSlotUpdateErrorDialog(
+            AlertDialogWithOneAction(
                 title = stringResource(R.string.action_not_allowed),
                 description = stringResource(R.string.past_time_slots_cannot_be_updated_or_deleted),
             ) {
                 showPastTimeSlotUpdateError = false
-            }
-        }
-    }
-}
-
-
-@Composable
-fun TimeSlotUpdateErrorDialog(
-    title: String,
-    description: String,
-    onDismiss: () -> Unit,
-) {
-    Dialog(
-        onDismissRequest = onDismiss
-    ) {
-        Column(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0XFFF1FCFF))
-                .padding(vertical = 10.dp, horizontal = 12.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = TextPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.W600,
-                )
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = TextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W400,
-                )
-            )
-
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text(
-                    text = stringResource(R.string.ok),
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.W600,
-                        color = TextButtonColor
-                    )
-                )
             }
         }
     }

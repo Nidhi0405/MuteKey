@@ -8,12 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.bbm.applock.ui.theme.Pink
+import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.Typography
 
 @Composable
@@ -32,6 +31,7 @@ fun BottomNavBar(
         items.forEach { item ->
             val isSelected = currentRoute?.contains(item.screen::class.simpleName.orEmpty()) == true
             NavigationBarItem(
+
                 selected = currentDestination?.route?.contains(item.screen::class.simpleName.orEmpty()) == true,
                 onClick = {
                     navController.navigate(item.screen) {
@@ -46,14 +46,14 @@ fun BottomNavBar(
                     Icon(
                         painter = painterResource(id = item.icon),
                         contentDescription = stringResource(item.label),
-                        tint = if (isSelected) Pink else Color.Black
+                        tint = if (isSelected) AquaBlue else Color.Black
                     )
                 },
                 label = {
                     Text(
                         text = stringResource(item.label),
                         style = Typography.labelSmall,
-                        color = if (isSelected) Pink else Color.Black
+                        color = if (isSelected) AquaBlue else Color.Black
                     )
                 },
                 alwaysShowLabel = true

@@ -101,11 +101,12 @@ interface ScheduleDao {
                 OR
                 (t.startTime > t.endTime AND (:time >= t.startTime OR :time <= t.endTime))
             )
+            AND s.id = :scheduleId
             AND s.isActive = 1
         )
         """
     )
-    suspend fun hasActiveTimeSlotNow(date: LocalDate, time: LocalTime): Boolean
+    suspend fun hasActiveTimeSlotNow(scheduleId: Int, date: LocalDate, time: LocalTime): Boolean
 
     @Query("DELETE FROM blocked_app_table WHERE timeSlotId = :id")
     suspend fun deleteAppsWithTimeSlotId(id: Int)

@@ -7,14 +7,20 @@ import com.applock.domain.model.Schedule
 import com.applock.domain.usecase.CreateScheduleUseCase
 import com.applock.domain.usecase.DeleteScheduleUseCase
 import com.applock.domain.usecase.GetAllSchedulesUseCase
+import com.applock.domain.usecase.HasActiveTimeSlotsNow
 import com.applock.domain.usecase.ToggleScheduleUseCase
+import com.bbm.applock.R
 import com.bbm.applock.dispatcher.CoroutineDispatcherProvider
 import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.base.BaseVM
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 @HiltViewModel
@@ -24,6 +30,7 @@ class SchedulesScreenVM @Inject constructor(
     private val createScheduleUseCase: CreateScheduleUseCase,
     private val deleteScheduleUseCase: DeleteScheduleUseCase,
     private val toggleScheduleUseCase: ToggleScheduleUseCase,
+    private val hasActiveTimeSlotsNow: HasActiveTimeSlotsNow,
 ) : BaseVM() {
 
     private val _schedulesList = MutableStateFlow<List<Schedule>>(emptyList())
@@ -39,6 +46,9 @@ class SchedulesScreenVM @Inject constructor(
 
     private val _scheduleName = MutableStateFlow("")
     val scheduleName: StateFlow<String> = _scheduleName
+
+    private val _errorAlertMsg = MutableSharedFlow<Int>()
+    val errorAlertMsg: SharedFlow<Int> = _errorAlertMsg
 
     init {
         getAllSchedules()
@@ -56,10 +66,12 @@ class SchedulesScreenVM @Inject constructor(
 
     fun createSchedule() {
         viewModelScope.launch(dispatcher.io) {
-            createScheduleUseCase.invoke(_scheduleName.value).fold(
+            val name = _scheduleName.value
+            resetInitialValues()
+            createScheduleUseCase.invoke(name).fold(
                 onSuccess = {
-                    "Schedule ${_scheduleName.value} created".logI()
-                    _scheduleName.value = ""
+                    "Schedule $name created".logI()
+                    resetInitialValues()
                     _isCreateScheduleDialogVisible.emit(false)
                 },
                 onFailure = {
@@ -73,6 +85,16 @@ class SchedulesScreenVM @Inject constructor(
 
     fun toggleSchedule(schedule: Schedule) {
         viewModelScope.launch(dispatcher.io) {
+            if (schedule.isActive &&
+                hasActiveTimeSlotsNow.invoke(
+                    scheduleId = schedule.id,
+                    date = LocalDate.now(),
+                    time = LocalTime.now()
+                )
+            ) {
+                _errorAlertMsg.emit(R.string.can_not_turn_of_active_schedule)
+                return@launch
+            }
             toggleScheduleUseCase.invoke(schedule).fold(
                 onSuccess = {
                     "Schedule ${schedule.name} toggled".logI()
@@ -85,7 +107,7 @@ class SchedulesScreenVM @Inject constructor(
     }
 
     fun toggleCreateScheduleDialog() {
-        _scheduleName.value = ""
+        resetInitialValues()
         _isCreateScheduleDialogVisible.value = !_isCreateScheduleDialogVisible.value
     }
 
@@ -96,6 +118,16 @@ class SchedulesScreenVM @Inject constructor(
     fun deleteSchedule(schedule: Schedule) {
         viewModelScope.launch(dispatcher.io) {
             toggleScheduleSettingsDialog(null)
+            if (schedule.isActive
+                && hasActiveTimeSlotsNow.invoke(
+                    scheduleId = schedule.id,
+                    date = LocalDate.now(),
+                    time = LocalTime.now()
+                )
+            ) {
+                _errorAlertMsg.emit(R.string.can_not_delete_active_schedule)
+                return@launch
+            }
             deleteScheduleUseCase.invoke(schedule).fold(
                 onSuccess = {
                     "Schedule ${schedule.name} toggled".logI()
@@ -113,5 +145,9 @@ class SchedulesScreenVM @Inject constructor(
         } else {
             _isScheduleSettingsDialogVisible.value = false to null
         }
+    }
+
+    fun resetInitialValues() {
+        _scheduleName.value = ""
     }
 }

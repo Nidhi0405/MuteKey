@@ -27,5 +27,5 @@ interface ScheduleRepo {
         time: LocalTime
     ): Boolean
 
-    suspend fun hasActiveTimeSlotNow(date: LocalDate, time: LocalTime): Boolean
+    suspend fun hasActiveTimeSlotNow(scheduleId: Int, date: LocalDate, time: LocalTime): Boolean
 }

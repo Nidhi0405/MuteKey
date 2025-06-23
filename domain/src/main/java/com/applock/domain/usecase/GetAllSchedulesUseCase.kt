@@ -8,7 +8,7 @@ import javax.inject.Inject
 class GetAllSchedulesUseCase @Inject constructor(
     private val repo: ScheduleRepo
 ) {
-    suspend operator fun invoke(): Flow<List<Schedule>> {
+    operator fun invoke(): Flow<List<Schedule>> {
         return repo.getAllSchedules()
     }
 }

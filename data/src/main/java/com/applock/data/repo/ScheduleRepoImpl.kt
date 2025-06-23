@@ -75,7 +75,7 @@ class ScheduleRepoImpl @Inject constructor(
         return scheduleDao.isPackageBlocked(packageName, date, time)
     }
 
-    override suspend fun hasActiveTimeSlotNow(date: LocalDate, time: LocalTime): Boolean {
-        return scheduleDao.hasActiveTimeSlotNow(date, time)
+    override suspend fun hasActiveTimeSlotNow(scheduleId: Int, date: LocalDate, time: LocalTime): Boolean {
+        return scheduleDao.hasActiveTimeSlotNow(scheduleId, date, time)
     }
 }
