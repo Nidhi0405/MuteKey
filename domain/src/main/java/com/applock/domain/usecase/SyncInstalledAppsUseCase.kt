@@ -35,4 +35,5 @@ class SyncInstalledAppsUseCase @Inject constructor(
             appUsageInfo.copy(isControlledApp = appUsageInfo.packageName in controlledAppPackages)
         }
     }
+
 }

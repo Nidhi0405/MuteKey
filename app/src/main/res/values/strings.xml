@@ -32,4 +32,5 @@
     <string name="select_end_time">Select End Time</string>
     <string name="can_not_turn_of_active_schedule">Cannot turn off schedule while it has active time slots.</string>
     <string name="can_not_delete_active_schedule">Cannot delete schedule while it has active time slots</string>
+    <string name="accessibility_service_label">App Lock Accessibility Service</string>
 </resources>

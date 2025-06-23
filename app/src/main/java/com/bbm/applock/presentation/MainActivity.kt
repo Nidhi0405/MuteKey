@@ -1,5 +1,6 @@
 package com.bbm.applock.presentation
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,11 +8,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
-import com.bbm.applock.App
 import com.bbm.applock.presentation.navigation.BottomNavBar
 import com.bbm.applock.presentation.navigation.BottomNavItem
 import com.bbm.applock.presentation.navigation.NavigationGraph
@@ -38,7 +42,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             AppLockTheme {
                 val navController = rememberNavController()
-                //val currentRoute = navBackStackEntry?.destination?.route
+                SetStatusBarAppearance()
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
@@ -89,6 +93,18 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         lifecycleScope.launch {
             lifeCycleEvent.emit(Lifecycle.Event.ON_DESTROY)
+        }
+    }
+}
+
+@Composable
+fun SetStatusBarAppearance(lightIcons: Boolean = true) {
+    val view = LocalView.current
+    val window = (view.context as? Activity)?.window ?: return
+
+    SideEffect {
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = lightIcons // true = dark icons
         }
     }
 }
