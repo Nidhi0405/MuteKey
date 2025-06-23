@@ -3,15 +3,9 @@ package com.bbm.applock.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
-import android.graphics.PixelFormat
-import android.view.LayoutInflater
-import android.view.View
-import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
-import android.widget.TextView
 import com.applock.core.logE
 import com.applock.domain.usecase.IsCurrentlyBlockedAppUseCase
-import com.bbm.applock.R
 import com.bbm.applock.hiltmodule.AppBlockAccessibilityModule
 import com.bbm.applock.presentation.BlockScreenActivity
 import dagger.hilt.android.EntryPointAccessors
@@ -30,6 +24,8 @@ class AppBlockAccessibilityService : AccessibilityService() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 delay(300)
+                val rootPkg = rootInActiveWindow?.packageName?.toString().orEmpty()
+                if (packageName != rootPkg) return@launch
                 val isBlocked = isCurrentlyBlockedApp.invoke(
                     packageName,
                     LocalDate.now(),
@@ -56,7 +52,6 @@ class AppBlockAccessibilityService : AccessibilityService() {
         ).isCurrentlyBlockedAppUseCase()
     }
 
-    private var lastActionedPackage: String = ""
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         try {
             if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
@@ -83,37 +78,6 @@ class AppBlockAccessibilityService : AccessibilityService() {
     fun removeAppFromScreen() {
         performGlobalAction(GLOBAL_ACTION_HOME) // Press home
     }
-
-    private var overlayView: View? = null
-    private lateinit var windowManager: WindowManager
-
-    private fun showOverlay(packageName: String) {
-        if (overlayView != null) return // Prevent duplicate overlays
-
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        overlayView = LayoutInflater.from(this).inflate(R.layout.blocked_layout, null)
-
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, // Only this
-            PixelFormat.RGBA_8888
-        )
-
-        windowManager.addView(overlayView, params)
-        overlayView?.findViewById<TextView>(R.id.tv_close)?.setOnClickListener {
-            overlayView?.let {
-                windowManager.removeView(it)
-                it.invalidate()
-                overlayView = null
-            }
-            removeAppFromScreen()
-        }
-    }
-
 
     override fun onCreate() {
         "onCreate".logE()
