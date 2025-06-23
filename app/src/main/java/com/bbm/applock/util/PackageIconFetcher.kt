@@ -5,12 +5,16 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import androidx.core.graphics.drawable.toBitmap
 import coil3.ImageLoader
+import coil3.asDrawable
 import coil3.asImage
 import coil3.decode.DataSource
 import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
 import coil3.fetch.ImageFetchResult
+import coil3.request.ImageRequest
 import coil3.request.Options
+import coil3.request.SuccessResult
+import coil3.request.allowHardware
 import coil3.size.pxOrElse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
