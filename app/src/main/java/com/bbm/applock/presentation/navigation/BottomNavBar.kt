@@ -3,6 +3,7 @@ package com.bbm.applock.presentation.navigation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,7 +32,6 @@ fun BottomNavBar(
         items.forEach { item ->
             val isSelected = currentRoute?.contains(item.screen::class.simpleName.orEmpty()) == true
             NavigationBarItem(
-
                 selected = currentDestination?.route?.contains(item.screen::class.simpleName.orEmpty()) == true,
                 onClick = {
                     navController.navigate(item.screen) {
@@ -56,7 +56,14 @@ fun BottomNavBar(
                         color = if (isSelected) AquaBlue else Color.Black
                     )
                 },
-                alwaysShowLabel = true
+                alwaysShowLabel = true,
+                colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = Color.Transparent,
+                    selectedIconColor = AquaBlue,
+                    selectedTextColor = AquaBlue,
+                    unselectedIconColor = Color.Black,
+                    unselectedTextColor = Color.Black
+                )
             )
         }
     }

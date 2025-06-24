@@ -97,4 +97,9 @@ dependencies {
     implementation(project(mapOf("path" to ":domain")))
     implementation(project(mapOf("path" to ":data")))
     implementation(project(mapOf("path" to ":core")))
+
+
+    implementation("androidx.lifecycle:lifecycle-process:2.9.1") // Or the latest version
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.1") // For lifecycleScope
+
 }

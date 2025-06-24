@@ -31,18 +31,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.lifecycleScope
 import coil3.ImageLoader
 import com.bbm.applock.R
 import com.bbm.applock.hiltmodule.ComponentActivityInjectModule
 import com.bbm.applock.service.AppBlockAccessibilityService
-import com.bbm.applock.service.AppBlockAccessibilityService.Companion.finishEvent
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.TextPrimaryGradient
 import com.bbm.applock.ui.theme.WhiteColor
 import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.launch
 
 
 class BlockScreenActivity : ComponentActivity() {
@@ -65,13 +62,6 @@ class BlockScreenActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        lifecycleScope.launch {
-            finishEvent.collect {
-                finishAffinity()
-                overridePendingTransition(0, 0)
-            }
-        }
 
         setContent {
             AppLockTheme {

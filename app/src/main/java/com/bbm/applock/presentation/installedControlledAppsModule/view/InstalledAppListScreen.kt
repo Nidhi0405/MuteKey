@@ -29,11 +29,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +60,7 @@ import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAppVM
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
+import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.util.AppIcon
 import com.bbm.applock.util.FullScreenLoader
 import com.bbm.applock.util.LifeCycleEvent
@@ -74,6 +78,7 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
     val searchText = vm.searchText.collectAsState()
     val appList = vm.installedAppList.collectAsState()
     val imageLoader = vm.imageLoader
+    val listState = rememberLazyListState()
 
     val notificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.POST_NOTIFICATIONS
@@ -87,7 +92,13 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
             vm.checkPermission()
         }
     }
-
+    LaunchedEffect(state.value) {
+        if (state.value is UiState.Success<*>) {
+            if (listState.firstVisibleItemIndex != 0) {
+                listState.animateScrollToItem(0)
+            }
+        }
+    }
 
     when (state.value) {
         is UiState.Failure<*> -> {
@@ -107,20 +118,18 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
         }
     }
 
-    LifeCycleEvent {
+    /*LifeCycleEvent {
         if (it == Lifecycle.Event.ON_START) {
             vm.checkPermission()
         }
-    }
+    }*/
     InstalledAppListScreenContent(
         isLoading = state.value is UiState.Loading,
         searchText = searchText.value,
         onTextChange = {
             vm.onSearchTextChange(it)
         },
-        onSearchClick = {
-            // nothing to do
-        },
+        onSortClick = vm::sortAppList,
         appList = appList.value,
         painter = {
             rememberAsyncImagePainter(
@@ -132,6 +141,7 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
             vm.onAddOrRemoveControlledApp(it)
         },
         permission = permission.value,
+        listState = listState,
         onClickPermission = {
             when (it.permissionType) {
                 PermissionInfo.PermissionType.NOTIFICATION -> {
@@ -184,11 +194,12 @@ private fun InstalledAppListScreenContent(
     isLoading: Boolean,
     searchText: String,
     onTextChange: (String) -> Unit,
-    onSearchClick: () -> Unit,
+    onSortClick: (InstalledAppVM.SortType) -> Unit,
     appList: List<AppUsageInfo>,
     painter: @Composable (AppUsageInfo) -> Painter,
     onAddOrRemoveControlledApp: (AppUsageInfo) -> Unit,
     permission: PermissionInfo?,
+    listState: LazyListState = rememberLazyListState(),
     onClickPermission: (PermissionInfo.Permission) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -205,11 +216,10 @@ private fun InstalledAppListScreenContent(
             SearchBar(
                 query = searchText,
                 onTextChange = onTextChange,
-                onSearchClick = onSearchClick,
+                onSortClick = onSortClick,
                 modifier = Modifier.padding(horizontal = 18.dp)
             )
             Spacer(modifier = Modifier.height(12.dp))
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -217,15 +227,19 @@ private fun InstalledAppListScreenContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    "Most Used Apps",
+                    stringResource(R.string.most_used_apps),
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = TextPrimary
                     )
                 )
                 Text(
-                    "Hours/Week",
+                    stringResource(R.string.hours_week),
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = TextPrimary
                     )
                 )
             }
@@ -234,8 +248,9 @@ private fun InstalledAppListScreenContent(
                     .fillMaxSize()
                     .padding(horizontal = 30.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
+                state = listState
             ) {
-                items(appList.size) {
+                items(appList.size, key = { appList[it].packageName }) {
                     AppUsageRow(
                         appList[it],
                         painter.invoke(appList[it]),
@@ -450,7 +465,7 @@ private fun InstalledAppListScreenPreview() {
                 isLoading = false,
                 searchText = "Instagram",
                 onTextChange = {},
-                onSearchClick = {},
+                onSortClick = {},
                 appList = listOf(
                     AppUsageInfo(
                         name = "Instagram",
@@ -471,6 +486,7 @@ private fun InstalledAppListScreenPreview() {
                         isControlledApp = false
                     )
                 ),
+                painter = { painterResource(R.drawable.ic_launcher_background) },
                 onAddOrRemoveControlledApp = {},
                 permission = PermissionInfo(
                     permissions = listOf(
@@ -496,9 +512,9 @@ private fun InstalledAppListScreenPreview() {
                     allGranted = false,
                     shouldAskPermission = true
                 ),
-                painter = { painterResource(R.drawable.ic_launcher_background) },
                 onClickPermission = {},
-                modifier = Modifier.fillMaxSize()
+                listState = rememberLazyListState(),
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }

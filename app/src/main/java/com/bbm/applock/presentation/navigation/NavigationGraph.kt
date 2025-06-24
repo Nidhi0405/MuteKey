@@ -13,6 +13,7 @@ import androidx.navigation.toRoute
 import com.applock.domain.model.Schedule
 import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.view.AnalyticsScreen
+import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
 import com.bbm.applock.presentation.installedControlledAppsModule.view.InstalledAppListScreen
 import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAppVM
 import com.bbm.applock.presentation.profileModule.view.ProfileScreen
@@ -40,14 +41,15 @@ fun NavigationGraph(
 private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
     composable<MainScreens.InstalledAppListScreenRoute> {
         val vm = hiltViewModel<InstalledAppVM>()
-        ScreenSurface(modifier = Modifier.fillMaxSize()){
+        ScreenSurface(modifier = Modifier.fillMaxSize()) {
             InstalledAppListScreen(vm)
         }
     }
 
     composable<MainScreens.ScheduleScreenRoute> {
         val vm = hiltViewModel<SchedulesScreenVM>()
-        ScreenSurface(Modifier.fillMaxSize(),
+        ScreenSurface(
+            Modifier.fillMaxSize(),
             painter = painterResource(R.drawable.bg_schedule_screen)
         ) {
             ScheduleScreen(
@@ -66,13 +68,14 @@ private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
     }
 
     composable<MainScreens.AnalyticsScreenRoute> {
-        ScreenSurface(modifier = Modifier.fillMaxSize()){
-            AnalyticsScreen()
+        ScreenSurface(modifier = Modifier.fillMaxSize()) {
+            val vm = hiltViewModel<AnalyticsVm>()
+            AnalyticsScreen(vm)
         }
     }
 
     composable<MainScreens.ProfileScreenRoute> {
-        ScreenSurface(modifier = Modifier.fillMaxSize()){
+        ScreenSurface(modifier = Modifier.fillMaxSize()) {
             ProfileScreen()
         }
     }

@@ -13,16 +13,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,15 +39,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.bbm.applock.R
+import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAppVM
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.TextButtonColor
 import com.bbm.applock.ui.theme.TextPrimary
+import com.bbm.applock.ui.theme.TextSecondary
 
 
 @Composable
@@ -92,9 +100,10 @@ fun FullScreenLoader(
 fun SearchBar(
     query: String,
     onTextChange: (String) -> Unit,
-    onSearchClick: () -> Unit,
+    onSortClick: (InstalledAppVM.SortType) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var expanded by remember { mutableStateOf(false) }
     Card(
         modifier = modifier
             .height(42.dp),
@@ -144,22 +153,42 @@ fun SearchBar(
                 innerTextField()
             }
 
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .noRippleClickable(onClick = onSearchClick)
-                    .background(Color(0xFF099ABB))
-                    .wrapContentSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.search),
-                    style = MaterialTheme.typography
-                        .labelMedium
-                        .copy(fontSize = 14.sp, color = Color.White),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
+            Box {
+                IconButton(
+                    onClick = {
+                        expanded = !expanded
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_horizontal_dots),
+                        contentDescription = "Sort by name or usage time"
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    InstalledAppVM.SortType.entries.forEach {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = stringResource(it.value),
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontSize = 18.sp,
+                                        color = TextSecondary,
+                                        fontWeight = FontWeight.W400
+                                    )
+                                )
+                            },
+                            onClick = {
+                                onSortClick.invoke(it)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
             }
         }
     }

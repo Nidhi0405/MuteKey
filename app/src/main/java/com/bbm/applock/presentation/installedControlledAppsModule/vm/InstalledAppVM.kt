@@ -1,5 +1,6 @@
 package com.bbm.applock.presentation.installedControlledAppsModule.vm
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
 import com.applock.core.logE
@@ -9,10 +10,12 @@ import com.applock.domain.usecase.AddControlledAppUseCase
 import com.applock.domain.usecase.DeleteControlledAppUseCase
 import com.applock.domain.usecase.PermissionUseCase
 import com.applock.domain.usecase.SyncInstalledAppsUseCase
+import com.bbm.applock.R
 import com.bbm.applock.dispatcher.CoroutineDispatcherProvider
 import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.base.BaseVM
 import com.bbm.applock.service.AppBlockAccessibilityService
+import com.bbm.applock.util.AppLifecycleObserver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,11 +34,22 @@ class InstalledAppVM @Inject constructor(
     private val addControlledAppUseCase: AddControlledAppUseCase,
     private val deleteControlledAppUseCase: DeleteControlledAppUseCase,
     private val permissionUseCase: PermissionUseCase,
+    private val appLifecycleObserver: AppLifecycleObserver,
     val imageLoader: ImageLoader,
 ) : BaseVM() {
 
+    enum class SortType(@StringRes val value: Int) {
+        NAME(R.string.sort_by_name), USAGE(R.string.sort_by_usage)
+    }
+
     init {
-        checkPermission()
+        viewModelScope.launch(dispatchers.default) {
+            appLifecycleObserver.isAppInForeground.collect { isForeground ->
+                if (isForeground) {
+                    checkPermission()
+                }
+            }
+        }
     }
 
     private val _searchText = MutableStateFlow("")
@@ -77,15 +92,9 @@ class InstalledAppVM @Inject constructor(
             _state.emit(UiState.Loading)
             val list = syncInstalledAppsUseCase.invoke(7)
             _installedApps.value = list.sortedByDescending { it.usageTimeInMillis }
-            //"total time =====  ${_installedApps.value.first().totalScreenTime?.timeInMillis?.millisToMinutesDecimal}".logE()
             _state.emit(UiState.Success(list, "success"))
         }
     }
-
-    val Long.millisToMinutesDecimal: Double
-        get() {
-            return this / 60_000.0
-        }
 
     fun onSearchTextChange(value: String) {
         _searchText.value = value
@@ -114,6 +123,19 @@ class InstalledAppVM @Inject constructor(
                     }
                 )
             }
+        }
+    }
+
+    fun sortAppList(type: SortType) {
+        viewModelScope.launch(dispatchers.default) {
+            _state.emit(UiState.Loading)
+            _installedApps.update {
+                when (type) {
+                    SortType.NAME -> it.sortedBy { it.name }
+                    SortType.USAGE -> it.sortedByDescending { it.usageTimeInMillis }
+                }
+            }
+            _state.emit(UiState.Success(Unit, "sorted by $type"))
         }
     }
 }

@@ -13,19 +13,15 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.bbm.applock.presentation.navigation.BottomNavBar
 import com.bbm.applock.presentation.navigation.BottomNavItem
 import com.bbm.applock.presentation.navigation.NavigationGraph
 import com.bbm.applock.ui.theme.AppLockTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    val lifeCycleEvent by lazy { (applicationContext as App).lifeCycleEvent }
     val navItems = listOf(
         BottomNavItem.Apps,
         BottomNavItem.Schedule,
@@ -36,9 +32,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        lifecycleScope.launch {
-            lifeCycleEvent.emit(Lifecycle.Event.ON_CREATE)
-        }
         setContent {
             AppLockTheme {
                 val navController = rememberNavController()
@@ -58,41 +51,6 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
-        }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        lifecycleScope.launch {
-            lifeCycleEvent.emit(Lifecycle.Event.ON_START)
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        lifecycleScope.launch {
-            lifeCycleEvent.emit(Lifecycle.Event.ON_PAUSE)
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        lifecycleScope.launch {
-            lifeCycleEvent.emit(Lifecycle.Event.ON_RESUME)
-        }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        lifecycleScope.launch {
-            lifeCycleEvent.emit(Lifecycle.Event.ON_STOP)
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        lifecycleScope.launch {
-            lifeCycleEvent.emit(Lifecycle.Event.ON_DESTROY)
         }
     }
 }
