@@ -5,14 +5,14 @@ import com.applock.domain.repo.ScheduleRepo
 import com.applock.domain.util.result
 import javax.inject.Inject
 
-class DeleteTimeSlotUseCase @Inject constructor(
-    private val repo: ScheduleRepo
+class UpdateScheduleUseCase @Inject constructor(
+    private val scheduleRepo: ScheduleRepo
 ) {
     suspend operator fun invoke(
-        timeSlotsInput: Schedule.DateInput.TimeSlotsInput
+        schedule: Schedule,
     ): Result<Unit> {
         return result {
-            repo.deleteTimeSlot(timeSlotsInput)
+            scheduleRepo.updateSchedule(schedule)
         }
     }
 }

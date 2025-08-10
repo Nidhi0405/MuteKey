@@ -10,7 +10,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
-import com.applock.domain.model.Schedule
 import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.view.AnalyticsScreen
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
@@ -19,6 +18,7 @@ import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAp
 import com.bbm.applock.presentation.profileModule.view.ProfileScreen
 import com.bbm.applock.presentation.scheduleModule.view.ScheduleDetailScreen
 import com.bbm.applock.presentation.scheduleModule.view.ScheduleScreen
+import com.bbm.applock.presentation.scheduleModule.vm.CreateOrUpdateScheduleVM
 import com.bbm.applock.presentation.scheduleModule.vm.ScheduleDetailScreenVM
 import com.bbm.applock.presentation.scheduleModule.vm.SchedulesScreenVM
 import com.bbm.applock.util.ScreenSurface
@@ -48,19 +48,17 @@ private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
 
     composable<MainScreens.ScheduleScreenRoute> {
         val vm = hiltViewModel<SchedulesScreenVM>()
+        val scheduleVM = hiltViewModel<CreateOrUpdateScheduleVM>()
         ScreenSurface(
             Modifier.fillMaxSize(),
             painter = painterResource(R.drawable.bg_schedule_screen)
         ) {
             ScheduleScreen(
                 vm,
+                scheduleVM,
                 onScheduleClick = {
                     navController.navigate(
-                        MainScreens.ScheduleDetailScreenRoute(
-                            it.id,
-                            it.name,
-                            it.isActive
-                        )
+                        MainScreens.ScheduleDetailScreenRoute(scheduleId = it.id)
                     )
                 }
             )
@@ -83,17 +81,14 @@ private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
     composable<MainScreens.ScheduleDetailScreenRoute> {
         val schedule = it.toRoute<MainScreens.ScheduleDetailScreenRoute>()
         val vm = hiltViewModel<ScheduleDetailScreenVM>()
+        val scheduleVM = hiltViewModel<CreateOrUpdateScheduleVM>()
         ScreenSurface {
             ScheduleDetailScreen(
-                schedule = Schedule(
-                    id = schedule.id,
-                    name = schedule.name,
-                    isActive = schedule.isActive
-                ),
                 onBackPress = {
                     navController.popBackStack()
                 },
-                vm = vm
+                vm = vm,
+                scheduleVM = scheduleVM
             )
         }
     }

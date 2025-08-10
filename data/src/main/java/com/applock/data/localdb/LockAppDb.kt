@@ -6,19 +6,15 @@ import androidx.room.TypeConverters
 import com.applock.data.localdb.dao.ControlledAppDao
 import com.applock.data.localdb.dao.InstalledAppDao
 import com.applock.data.localdb.dao.ScheduleDao
-import com.applock.data.localdb.entity.BlockedAppEntity
-import com.applock.data.localdb.entity.DateEntity
+import com.applock.data.localdb.entity.AppEntity
 import com.applock.data.localdb.entity.InstalledAppInfoEntity
 import com.applock.data.localdb.entity.ScheduleEntity
-import com.applock.data.localdb.entity.TimeSlotEntity
 
 @Database(
     entities = [
         InstalledAppInfoEntity::class,
         ScheduleEntity::class,
-        DateEntity::class,
-        TimeSlotEntity::class,
-        BlockedAppEntity::class
+        AppEntity::class
     ],
     version = 1
 )

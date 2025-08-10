@@ -1,32 +1,26 @@
 package com.applock.domain.model
 
-import java.time.LocalDate
+import com.applock.domain.util.formate
+import com.applock.domain.util.shortString
+import java.time.DayOfWeek
 import java.time.LocalTime
 
-
 data class Schedule(
-    val id: Int = 0,
+    val id: Long = 0,
     val name: String,
-    val isActive: Boolean = false
+    val startTime: LocalTime,
+    val endTime: LocalTime,
+    val isActive: Boolean,
+    val repeatDays: List<DayOfWeek>,
+    val apps: List<App> = emptyList()
 ) {
-    data class DateInput(
-        val id: Int = 0,
-        val date: LocalDate,
-        val scheduleId: Int, // foreign key
-    ) {
-        data class TimeSlotsInput(
-            val id: Int = 0,
-            val start: LocalTime,
-            val end: LocalTime,
-            val dateId: Int = 0, // foreign key
-        ) {
-            data class BlockedAppsInput(
-                val id: Int,
-                val name: String,
-                val packageName: String,
-                val timeSlotId: Int, // foreign key
-            )
-        }
-    }
-}
+    data class App(
+        val id: Long = 0,
+        val appId: String,
+        val appName: String
+    )
 
+    val startTimeFormat by lazy { startTime.formate }
+    val endTimeFormat by lazy { endTime.formate }
+    val repeatDaysFormat by lazy { repeatDays.shortString }
+}

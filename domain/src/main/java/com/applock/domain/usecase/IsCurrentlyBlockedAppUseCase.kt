@@ -13,6 +13,9 @@ class IsCurrentlyBlockedAppUseCase @Inject constructor(
         date: LocalDate,
         time: LocalTime,
     ): Boolean {
-        return localAppRepo.isCurrentlyBlockedApp(packageName, date, time)
+        TODO()
+//        return localAppRepo.isAppRestrictedWithActiveSchedule(
+//
+//        )
     }
 }

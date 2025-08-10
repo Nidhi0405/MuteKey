@@ -8,7 +8,10 @@ import javax.inject.Inject
 class HasActiveTimeSlotsNow @Inject constructor(
     private val repo: ScheduleRepo
 ) {
-    suspend operator fun invoke(scheduleId: Int, date: LocalDate, time: LocalTime): Boolean {
-        return repo.hasActiveTimeSlotNow(scheduleId = scheduleId, date = date, time = time)
+    suspend operator fun invoke(scheduleId: Long, date: LocalDate, time: LocalTime): Boolean {
+        return repo.isScheduleActiveAndRunning(
+            scheduleId = scheduleId,
+            currentTimeMillis = time
+        )
     }
 }

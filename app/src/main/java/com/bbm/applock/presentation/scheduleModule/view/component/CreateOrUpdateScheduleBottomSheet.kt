@@ -1,5 +1,6 @@
 package com.bbm.applock.presentation.scheduleModule.view.component
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -27,6 +30,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,8 +38,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -44,28 +50,35 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.ImageLoader
+import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.Schedule
 import com.bbm.applock.R
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.Red
+import com.bbm.applock.ui.theme.TextButtonColor
 import com.bbm.applock.ui.theme.TextPrimary
+import com.bbm.applock.ui.theme.TextPrimaryGradient
 import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.ui.theme.WhiteColor
+import com.bbm.applock.util.AppIcon
 import com.bbm.applock.util.ScreenSurface
 import com.bbm.applock.util.noRippleClickable
-import com.bbm.applock.util.toDayDateMonth
 import com.bbm.applock.util.toHourMinute
-import java.time.LocalDate
+import java.time.DayOfWeek
 import java.time.LocalTime
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddScheduleTimeRangeBottomSheet(
-    currentUpdatingTimeSlot: Schedule.DateInput.TimeSlotsInput?,
-    selectedDate: LocalDate,
+fun CreateOrUpdateScheduleBottomSheet(
+    schedule: Schedule?,
+    scheduleName: String,
+    onScheduleNameChange: (String) -> Unit,
+    selectedDays: Set<DayOfWeek>,
+    onDaySelected: (DayOfWeek) -> Unit,
     controlledApps: List<AppUsageInfo>,
     selectedApps: Set<AppUsageInfo>,
     onAppSelectToggleClick: (AppUsageInfo) -> Unit,
@@ -73,9 +86,9 @@ fun AddScheduleTimeRangeBottomSheet(
     endTime: LocalTime,
     onDismiss: () -> Unit,
     onAddOrUpdateClick: () -> Unit,
-    onDelete: () -> Unit,
+    onDeleteOrDismiss: () -> Unit,
     onSelectTimeSlot: (start: LocalTime, end: LocalTime) -> Unit,
-    painter: @Composable (AppUsageInfo) -> Painter,
+    imageLoader: ImageLoader,
     sheetState: SheetState,
 ) {
     var isStartTimeSelectionDialogOpen by remember {
@@ -87,13 +100,15 @@ fun AddScheduleTimeRangeBottomSheet(
     val containerSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current.density
     val screenHeight = containerSize.height.dp / density
-    val containerHeight = (screenHeight.value * 0.60).dp
+    val containerHeight = (screenHeight.value * 0.70).dp
 
     ModalBottomSheet(
         dragHandle = null,
         sheetState = sheetState,
         onDismissRequest = {
-            onDismiss.invoke()
+            // only dismiss when updating else will be from [Cancel] click
+            if (schedule != null)
+                onDismiss.invoke()
         },
     ) {
         Column(
@@ -102,25 +117,74 @@ fun AddScheduleTimeRangeBottomSheet(
                 .height(containerHeight)
                 .background(WhiteColor)
         ) {
-            Spacer(Modifier.height(22.dp))
-
+            Spacer(Modifier.height(20.dp))
             Text(
-                text = selectedDate.toDayDateMonth,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = AquaBlue,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.W600,
+                text = if (schedule == null)
+                    stringResource(R.string.create_your_schedule)
+                else stringResource(R.string.update_your_schedule),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    brush = TextPrimaryGradient,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
                 ),
-                modifier = Modifier.padding(horizontal = 26.dp)
+                modifier = Modifier.padding(horizontal = 26.dp),
             )
-
-            Spacer(Modifier.height(12.dp))
-
+            Spacer(Modifier.height(18.dp))
+            Card(
+                modifier = Modifier
+                    .height(40.dp)
+                    .padding(horizontal = 26.dp),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(2.dp),
+                colors = CardDefaults.cardColors(Color.White),
+                border = BorderStroke(1.5.dp, Color(0XFF6BD1CD))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BasicTextField(
+                        value = scheduleName,
+                        onValueChange = {
+                            if (it.length <= 20)
+                                onScheduleNameChange.invoke(it)
+                        },
+                        textStyle = MaterialTheme.typography
+                            .labelMedium
+                            .copy(
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.W400
+                            ),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .padding(top = 1.dp)
+                            .weight(1f),
+                    ) { innerTextField ->
+                        if (scheduleName.isEmpty())
+                            Text(
+                                stringResource(R.string.enter_schedule_name),
+                                style = MaterialTheme.typography
+                                    .labelMedium
+                                    .copy(fontSize = 14.sp, fontWeight = FontWeight.W400),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 1.dp)
+                                    .weight(1f)
+                            )
+                        innerTextField()
+                    }
+                }
+            }
+            Spacer(Modifier.height(18.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 26.dp)
-                    .height(80.dp)
+                    .height(68.dp)
             ) {
                 TimeSelectionCard(
                     heading = "Start",
@@ -140,11 +204,40 @@ fun AddScheduleTimeRangeBottomSheet(
                     modifier = Modifier.weight(1f)
                 )
             }
-
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = stringResource(R.string.which_days),
+                modifier = Modifier.padding(horizontal = 26.dp),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    brush = TextPrimaryGradient,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Spacer(Modifier.height(4.dp))
+            WeekDaySelectionRow(
+                selectedDays = selectedDays,
+                onDaySelected = onDaySelected,
+                isViewing = false,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = stringResource(R.string.controlled_apps),
+                modifier = Modifier.padding(horizontal = 26.dp),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    brush = TextPrimaryGradient,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 22.dp)
+                contentPadding = PaddingValues(
+                    horizontal = 32.dp,
+                    vertical = 8.dp
+                )
             ) {
                 items(count = controlledApps.size) {
                     val app = controlledApps[it]
@@ -155,7 +248,13 @@ fun AddScheduleTimeRangeBottomSheet(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Image(
-                            painter = painter.invoke(app),
+                            painter = if (LocalInspectionMode.current)
+                                painterResource(R.drawable.ic_check_circle)
+                            else
+                                rememberAsyncImagePainter(
+                                    AppIcon(app.packageName),
+                                    imageLoader = imageLoader
+                                ),
                             contentDescription = app.name,
                             modifier = Modifier
                                 .size(40.dp)
@@ -186,9 +285,7 @@ fun AddScheduleTimeRangeBottomSheet(
                     }
                 }
             }
-
             Spacer(Modifier.height(8.dp))
-
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 26.dp),
@@ -197,7 +294,13 @@ fun AddScheduleTimeRangeBottomSheet(
             ) {
                 items(count = selectedApps.size) {
                     Image(
-                        painter = painter.invoke(selectedApps.elementAt(it)),
+                        painter = if (LocalInspectionMode.current)
+                            painterResource(R.drawable.ic_check_circle)
+                        else
+                            rememberAsyncImagePainter(
+                                AppIcon(selectedApps.elementAt(it).packageName),
+                                imageLoader = imageLoader
+                            ),
                         contentDescription = null,
                         modifier = Modifier
                             .size(30.dp)
@@ -206,43 +309,46 @@ fun AddScheduleTimeRangeBottomSheet(
                     )
                 }
             }
-
             Spacer(Modifier.height(4.dp))
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 26.dp)
             ) {
-                if (currentUpdatingTimeSlot != null) {
-                    Button(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
-                        onClick = onDelete,
-                        colors = ButtonDefaults.buttonColors(containerColor = Red)
-                    ) {
-                        Text(
-                            stringResource(R.string.delete),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = WhiteColor,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.W600
-                            )
+                Button(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    onClick = onDeleteOrDismiss,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (schedule != null)
+                            Red
+                        else TextButtonColor
+                    )
+                ) {
+                    Text(
+                        if (schedule != null) stringResource(R.string.delete)
+                        else stringResource(R.string.cancel),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = WhiteColor,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.W600
                         )
-                    }
-                    Spacer(Modifier.width(8.dp))
+                    )
                 }
+                Spacer(Modifier.width(8.dp))
                 Button(
                     modifier = Modifier
                         .weight(1f)
                         .height(44.dp),
                     onClick = onAddOrUpdateClick,
-                    enabled = selectedApps.isNotEmpty(),
+                    enabled = (selectedApps.isNotEmpty()
+                            && selectedDays.isNotEmpty()
+                            && scheduleName.length > 2),
                     colors = ButtonDefaults.buttonColors(containerColor = AquaBlue)
                 ) {
                     Text(
-                        if (currentUpdatingTimeSlot == null) stringResource(R.string.add)
+                        if (schedule == null) stringResource(R.string.add)
                         else stringResource(R.string.update),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = WhiteColor,
@@ -252,6 +358,7 @@ fun AddScheduleTimeRangeBottomSheet(
                     )
                 }
             }
+            Spacer(Modifier.height(4.dp))
         }
     }
 
@@ -287,7 +394,7 @@ fun AddScheduleTimeRangeBottomSheet(
 fun TimeSelectionCard(
     heading: String,
     time: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit),
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -301,7 +408,7 @@ fun TimeSelectionCard(
                 .fillMaxSize()
                 .background(WhiteColor)
         ) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = heading,
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -323,7 +430,7 @@ fun TimeSelectionCard(
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
         }
     }
 }
@@ -333,10 +440,34 @@ fun TimeSelectionCard(
 @Composable
 private fun AddScheduleTimeRangeBottomSheetPreview() {
     AppLockTheme {
+        val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val dummyApps = listOf(
+            AppUsageInfo(
+                "App One", "com.example.app1",
+                usageTimeInMillis = 10000,
+                isControlledApp = true,
+                totalScreenTime = null
+            ),
+            AppUsageInfo(
+                "App One", "com.example.app1",
+                usageTimeInMillis = 10000,
+                isControlledApp = true,
+                totalScreenTime = null
+            ),
+            AppUsageInfo(
+                "App One", "com.example.app1",
+                usageTimeInMillis = 10000,
+                isControlledApp = true,
+                totalScreenTime = null
+            ),
+        )
+        LaunchedEffect(Unit) {
+            state.show()
+        }
         ScreenSurface {
-            AddScheduleTimeRangeBottomSheet(
-                selectedDate = LocalDate.now(),
-                controlledApps = emptyList(),
+            CreateOrUpdateScheduleBottomSheet(
+                schedule = null,
+                controlledApps = dummyApps,
                 selectedApps = emptySet(),
                 onAppSelectToggleClick = {},
                 startTime = LocalTime.now(),
@@ -344,13 +475,13 @@ private fun AddScheduleTimeRangeBottomSheetPreview() {
                 onDismiss = {},
                 onAddOrUpdateClick = {},
                 onSelectTimeSlot = { _, _ -> },
-                painter = {
-                    painterResource(R.drawable.ic_launcher_background)
-                },
-                sheetState = rememberModalBottomSheetState().apply {
-                },
-                currentUpdatingTimeSlot = null,
-                onDelete = {}
+                imageLoader = ImageLoader.Builder(LocalContext.current).build(),
+                sheetState = state,
+                onDeleteOrDismiss = {},
+                scheduleName = "",
+                onScheduleNameChange = {},
+                selectedDays = emptySet(),
+                onDaySelected = {},
             )
         }
     }

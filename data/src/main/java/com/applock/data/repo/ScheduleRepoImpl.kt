@@ -1,81 +1,101 @@
 package com.applock.data.repo
 
 import com.applock.data.localdb.dao.ScheduleDao
-import com.applock.data.mapper.toBlockedAppEntity
-import com.applock.data.mapper.toDateEntity
+import com.applock.data.localdb.entity.AppEntity
 import com.applock.data.mapper.toDomain
-import com.applock.data.mapper.toScheduleEntity
-import com.applock.data.mapper.toTimeSlotEntity
+import com.applock.data.mapper.toEntity
 import com.applock.domain.model.Schedule
-import com.applock.domain.model.ScheduleWithDates
 import com.applock.domain.repo.ScheduleRepo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.format.TextStyle
+import java.util.Locale
 import javax.inject.Inject
 
 class ScheduleRepoImpl @Inject constructor(
     private val scheduleDao: ScheduleDao
 ) : ScheduleRepo {
     override fun getAllSchedules(): Flow<List<Schedule>> {
-        return scheduleDao.getAllSchedules().map { list ->
-            list.map { item ->
-                item.toDomain()
-            }
+        return scheduleDao.getAllSchedules()
+            .map { list -> list.map { it.toDomain() } }
+    }
+
+    override fun getScheduleById(id: Long): Flow<Schedule?> {
+        return scheduleDao.getScheduleById(id)
+            .map { it?.toDomain() }
+    }
+
+    override suspend fun createSchedule(schedule: Schedule): Long {
+        val scheduleEntity = schedule.toEntity()
+        val scheduleId = scheduleDao.insertSchedule(scheduleEntity)
+
+        val appEntities = schedule.apps.map {
+            AppEntity(scheduleId = scheduleId, appId = it.appId, appName = it.appName)
         }
+        scheduleDao.insertApps(appEntities)
+
+        return scheduleId
     }
 
-    override suspend fun createSchedule(schedule: Schedule) {
-        scheduleDao.createSchedule(schedule = schedule.toScheduleEntity())
+    override suspend fun updateSchedule(schedule: Schedule) {
+        val scheduleEntity = schedule.toEntity()
+        scheduleDao.updateSchedule(scheduleEntity)
+
+        // Replace apps
+        scheduleDao.deleteAppsByScheduleId(schedule.id)
+        val newAppEntities = schedule.apps.map {
+            AppEntity(scheduleId = schedule.id, appId = it.appId, appName = it.appName)
+        }
+        scheduleDao.insertApps(newAppEntities)
     }
 
-    override suspend fun updateActiveStatus(schedule: Schedule) {
-        scheduleDao.updateActiveStatus(scheduleId = schedule.id, isActive = schedule.isActive)
+    override suspend fun deleteSchedule(scheduleId: Long) {
+        scheduleDao.deleteSchedule(scheduleId)
     }
 
-    override suspend fun deleteSchedule(schedule: Schedule) {
-        scheduleDao.deleteSchedule(schedule.toScheduleEntity())
-    }
-
-    override suspend fun createDate(date: Schedule.DateInput): Long {
-        return scheduleDao.getDateIdIfExists(date.date, date.scheduleId)?.toLong()
-            ?: scheduleDao.createDateEntry(date.toDateEntity())
-    }
-
-    override suspend fun createTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput): Long {
-        return scheduleDao.getTimeSlotIdIfExists(
-            timeSlotsInput.start, timeSlotsInput.end, timeSlotsInput.dateId
-        )?.toLong() ?: scheduleDao.createTimeSlot(timeSlotsInput.toTimeSlotEntity())
-    }
-
-    override suspend fun updateTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput) {
-        scheduleDao.updateTimeSlot(timeSlotsInput.toTimeSlotEntity())
-    }
-
-    override suspend fun deleteTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput) {
-        scheduleDao.deleteTimeSlot(timeSlotsInput.toTimeSlotEntity())
-    }
-
-    override suspend fun createBlockAppList(list: List<Schedule.DateInput.TimeSlotsInput.BlockedAppsInput>) {
-        scheduleDao.createBlockAppList(list.map { it.toBlockedAppEntity() })
-    }
-
-    override suspend fun deleteAppsWithTimeSlotId(id: Int) {
-        scheduleDao.deleteAppsWithTimeSlotId(id)
-    }
-
-    override fun getScheduleWithDates(sheduleId: Int): Flow<ScheduleWithDates> {
-        return scheduleDao.getScheduleWithDates(sheduleId).map { it.toDomain() }
-    }
-
-    override suspend fun isCurrentlyBlockedApp(
-        packageName: String, date: LocalDate, time: LocalTime
+    override suspend fun isScheduleExists(
+        scheduleName: String,
+        startTime: LocalTime,
+        endTime: LocalTime
     ): Boolean {
-        return scheduleDao.isPackageBlocked(packageName, date, time)
+        return scheduleDao.isScheduleExists(scheduleName, startTime, endTime)
     }
 
-    override suspend fun hasActiveTimeSlotNow(scheduleId: Int, date: LocalDate, time: LocalTime): Boolean {
-        return scheduleDao.hasActiveTimeSlotNow(scheduleId, date, time)
+    override suspend fun updateActiveStatus(scheduleId: Long, isActive: Boolean) {
+        scheduleDao.updateScheduleActiveStatus(scheduleId, isActive)
+    }
+
+    override suspend fun isAppRestrictedWithActiveSchedule(
+        currentTimeMillis: Long,
+        appPackage: String
+    ): Boolean {
+        return scheduleDao.isAppRestrictedNowWithActiveSchedule(
+            currentTime = currentTimeMillis,
+            appPackage = appPackage
+        ) > 0
+    }
+
+    override suspend fun isScheduleActiveAndRunning(
+        scheduleId: Long,
+        currentTimeMillis: LocalTime,
+    ): Boolean {
+        val dayOfWeek = LocalDate
+            .now()
+            .atTime(currentTimeMillis)
+            .dayOfWeek
+            .getDisplayName(
+                TextStyle.FULL,
+                Locale.ENGLISH
+            )
+        return scheduleDao.getActiveAndRunningSchedule(
+            scheduleId = scheduleId,
+            currentTime = currentTimeMillis
+        )
+            ?.repeatDays
+            ?.any {
+                it.toString().equals(dayOfWeek, ignoreCase = true)
+            } == true
     }
 }

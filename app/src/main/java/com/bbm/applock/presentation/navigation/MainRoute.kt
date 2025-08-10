@@ -21,9 +21,5 @@ object MainScreens {
     data object ProfileScreenRoute
 
     @Serializable
-    data class ScheduleDetailScreenRoute(
-        val id: Int,
-        val name: String,
-        val isActive: Boolean
-    )
+    data class ScheduleDetailScreenRoute(val scheduleId: Long = 0)
 }

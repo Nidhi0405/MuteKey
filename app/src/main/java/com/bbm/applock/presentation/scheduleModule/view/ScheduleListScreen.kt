@@ -22,13 +22,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,9 +53,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import coil3.ImageLoader
+import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.Schedule
 import com.bbm.applock.R
 import com.bbm.applock.presentation.UiState
+import com.bbm.applock.presentation.scheduleModule.view.component.CreateOrUpdateScheduleBottomSheet
+import com.bbm.applock.presentation.scheduleModule.vm.CreateOrUpdateScheduleVM
 import com.bbm.applock.presentation.scheduleModule.vm.SchedulesScreenVM
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.TextButtonColor
@@ -58,25 +67,51 @@ import com.bbm.applock.ui.theme.TextPrimaryGradient
 import com.bbm.applock.util.MultiDevicePreview
 import com.bbm.applock.util.ScreenSurface
 import com.bbm.applock.util.noRippleClickable
+import java.time.DayOfWeek
+import java.time.LocalTime
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(
     vm: SchedulesScreenVM,
+    scheduleVM: CreateOrUpdateScheduleVM,
     onScheduleClick: (Schedule) -> Unit
 ) {
     val state = vm.state.collectAsState()
     val scheduleList = vm.schedulesList.collectAsState()
     val scheduleSettingsDialog = vm.isScheduleSettingsDialogVisible.collectAsState()
-    val newScheduleName = vm.scheduleName.collectAsState()
-    val isCreateScheduleDialogVisible = vm.isCreateScheduleDialogVisible.collectAsState()
+
+    val isCreateScheduleDialogVisible = scheduleVM.isCreateScheduleDialogVisible.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val imageLoader = vm.imageLoader
+
+
+    // Create UPDATE
+    val newScheduleName = scheduleVM.scheduleName.collectAsState()
+    val onScheduleNameChange = scheduleVM::onScheduleNameChange
+    val controlledApps = scheduleVM.controlledApps.collectAsState().value
+    val selectedApps = scheduleVM.selectedControlledApps.collectAsState().value
+    val onControlledAppSelect = scheduleVM::onAppSelectToggleClick
+    val selectedRepeatDays = scheduleVM.selectedDays.collectAsState().value
+    val onRepeatDaysChangeClick = scheduleVM::onDaySelectToggleClick
+    val (startTime, endTime) = scheduleVM.selectedTimeSlot.collectAsState().value
+    val onSelectTimeSlot = scheduleVM::onSelectTimeSlot
+    val onCreateScheduleClick = scheduleVM::createSchedule
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { newState ->
+            // Prevent dismissal by user interaction (swipe down, tap outside)
+            newState != SheetValue.Hidden
+        }
+    )
     LaunchedEffect(Unit) {
         vm.errorAlertMsg.collect { message ->
             snackbarHostState.showSnackbar(message = context.getString(message))
         }
     }
+
     when (state.value) {
         is UiState.Failure<*> -> {
 
@@ -100,13 +135,10 @@ fun ScheduleScreen(
     }
     ScheduleScreenContent(
         onAddNewSchedule = {
-            vm.toggleCreateScheduleDialog()
+            scheduleVM.toggleCreateScheduleDialog()
         },
         onNewScheduleDismiss = {
-            vm.toggleCreateScheduleDialog()
-        },
-        onCreateScheduleClick = {
-            vm.createSchedule()
+            scheduleVM.toggleCreateScheduleDialog()
         },
         onToggleSchedule = {
             vm.toggleSchedule(it)
@@ -120,30 +152,44 @@ fun ScheduleScreen(
         onScheduleAnalyticsClick = {
             vm.toggleScheduleSettingsDialog(null)
         },
-        onScheduleClick = {
+        onScheduleRowClick = {
             onScheduleClick.invoke(it)
         },
         onScheduleSettingsDismissClick = {
             vm.toggleScheduleSettingsDialog(null)
         },
-        onNewScheduleNameChange = {
-            vm.onNewScheduleNameChange(it)
-        },
         isScheduleSettingsDialogVisible = scheduleSettingsDialog.value.first,
         selectedScheduleForSetting = scheduleSettingsDialog.value.second,
-        newScheduleName = newScheduleName.value,
         schedules = scheduleList.value,
         isCreateScheduleDialogVisible = isCreateScheduleDialogVisible.value,
+        imageLoader = imageLoader,
+        sheetState = sheetState,
+
+        // createParams
+        newScheduleName = newScheduleName.value,
+        onNewScheduleNameChange = onScheduleNameChange,
+        controlledApps = controlledApps,
+        onControlledAppSelect = onControlledAppSelect,
+        selectedApps = selectedApps,
+        selectedRepeatDays = selectedRepeatDays,
+        onRepeatDaysChangeClick = onRepeatDaysChangeClick,
+        onSelectTimeSlot = onSelectTimeSlot,
+        startTime = startTime,
+        endTime = endTime,
+        onCreateScheduleClick = onCreateScheduleClick,
+
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
     )
+
     SnackbarHost(
         hostState = snackbarHostState,
         modifier = Modifier.fillMaxWidth(),
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScheduleScreenContent(
     onAddNewSchedule: () -> Unit,
@@ -154,21 +200,49 @@ private fun ScheduleScreenContent(
     onScheduleSettingsDismissClick: () -> Unit,
     onScheduleDeleteClick: (Schedule) -> Unit,
     onScheduleAnalyticsClick: (Schedule) -> Unit,
-    onScheduleClick: (schedule: Schedule) -> Unit,
+    onScheduleRowClick: (schedule: Schedule) -> Unit,
     isCreateScheduleDialogVisible: Boolean,
     isScheduleSettingsDialogVisible: Boolean,
     selectedScheduleForSetting: Schedule?,
     newScheduleName: String,
     onNewScheduleNameChange: (String) -> Unit,
     schedules: List<Schedule>,
+    imageLoader: ImageLoader,
+    sheetState: SheetState,
     modifier: Modifier = Modifier,
+    controlledApps: List<AppUsageInfo>,
+    onControlledAppSelect: (AppUsageInfo) -> Unit,
+    selectedApps: Set<AppUsageInfo>,
+    selectedRepeatDays: Set<DayOfWeek>,
+    onRepeatDaysChangeClick: (DayOfWeek) -> Unit,
+    onSelectTimeSlot: (LocalTime, LocalTime) -> Unit,
+    startTime: LocalTime,
+    endTime: LocalTime,
 ) {
     if (isCreateScheduleDialogVisible) {
-        CreateScheduleDialog(
-            name = newScheduleName,
-            onCreateClick = onCreateScheduleClick,
+        CreateOrUpdateScheduleBottomSheet(
+            schedule = null,
+            scheduleName = newScheduleName,
+            onScheduleNameChange = onNewScheduleNameChange,
+            selectedDays = selectedRepeatDays,
+            onDaySelected = onRepeatDaysChangeClick,
+            controlledApps = controlledApps,
+            selectedApps = selectedApps,
+            onAppSelectToggleClick = onControlledAppSelect,
+            startTime = startTime,
+            endTime = endTime,
             onDismiss = onNewScheduleDismiss,
-            onTextChange = onNewScheduleNameChange
+            onAddOrUpdateClick = {
+                // will be create only
+                onCreateScheduleClick.invoke()
+            },
+            onDeleteOrDismiss = {
+                // no delete from here
+                onNewScheduleDismiss.invoke()
+            },
+            onSelectTimeSlot = onSelectTimeSlot,
+            imageLoader = imageLoader,
+            sheetState = sheetState,
         )
     }
     if (isScheduleSettingsDialogVisible && selectedScheduleForSetting != null) {
@@ -211,7 +285,7 @@ private fun ScheduleScreenContent(
                         onScheduleSettingsClick.invoke(schedules[index])
                     },
                     onScheduleClick = {
-                        onScheduleClick.invoke(schedules[index])
+                        onScheduleRowClick.invoke(schedules[index])
                     },
                 )
             }
@@ -266,6 +340,7 @@ private fun HeaderSectionPreview() {
     }
 }
 
+
 @Composable
 fun ScheduleItemRow(
     schedule: Schedule,
@@ -276,7 +351,6 @@ fun ScheduleItemRow(
 ) {
     Card(
         modifier = modifier
-            .height(48.dp)
             .noRippleClickable(onScheduleClick)
             .fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -285,23 +359,22 @@ fun ScheduleItemRow(
         ),
         border = BorderStroke(1.dp, Color(0XFF6BD1CD))
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = schedule.name,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.W400
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            Row {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(24.dp)
+            ) {
+                Text(
+                    text = schedule.name,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.W500
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
                 Switch(
                     checked = schedule.isActive,
                     onCheckedChange = {
@@ -323,13 +396,73 @@ fun ScheduleItemRow(
                     ),
                     modifier = Modifier.scale(0.7f)
                 )
-                Spacer(Modifier.width(6.dp))
-                Image(
-                    painter = painterResource(R.drawable.ic_settings),
-                    contentDescription = "Schedule Settings",
-                    modifier = Modifier
-                        .size(26.dp)
-                        .noRippleClickable(onSettingsClick)
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .padding(2.dp)
+                    .height(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_analog_clock),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "${schedule.startTimeFormat} - ${schedule.endTimeFormat}",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.W400
+                    )
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .padding(2.dp)
+                    .height(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_calender_month),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    schedule.repeatDaysFormat,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.W400
+                    )
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .padding(2.dp)
+                    .height(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_apps),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                val scheduledText =
+                    if (schedule.apps.size > 1)
+                        "${schedule.apps.size} Apps Scheduled"
+                    else
+                        "${schedule.apps.size} App Scheduled"
+                Text(
+                    text = scheduledText,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.W400
+                    )
                 )
             }
         }
@@ -342,7 +475,14 @@ private fun ScheduleItemRowPreview() {
     AppLockTheme {
         Column {
             ScheduleItemRow(
-                schedule = Schedule(name = "Lunch Time", isActive = false),
+                schedule = Schedule(
+                    name = "Lunch Time", isActive = false,
+                    id = 1,
+                    startTime = LocalTime.now(),
+                    endTime = LocalTime.now().plusHours(5),
+                    repeatDays = listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+                    apps = emptyList()
+                ),
                 onToggleSchedule = {},
                 onSettingsClick = {},
                 onScheduleClick = {},
@@ -350,13 +490,19 @@ private fun ScheduleItemRowPreview() {
             )
             Spacer(Modifier.height(12.dp))
             ScheduleItemRow(
-                schedule = Schedule(name = "Lunch Time", isActive = true),
+                schedule = Schedule(
+                    name = "Lunch Time", isActive = false,
+                    id = 1,
+                    startTime = LocalTime.now(),
+                    endTime = LocalTime.now().plusHours(5),
+                    repeatDays = DayOfWeek.entries.toList(),
+                    apps = emptyList()
+                ),
                 onToggleSchedule = {},
                 onSettingsClick = {},
                 onScheduleClick = {},
                 modifier = Modifier.fillMaxWidth()
             )
-
         }
     }
 }
@@ -595,7 +741,15 @@ fun ScheduleSettingsDialog(
 private fun ScheduleSettingsDialogPreview() {
     AppLockTheme {
         ScheduleSettingsDialog(
-            schedule = Schedule(name = "Lunch Time", isActive = true),
+            schedule = Schedule(
+                name = "Lunch Time",
+                isActive = false,
+                id = 1,
+                startTime = LocalTime.now(),
+                endTime = LocalTime.now().plusHours(5),
+                repeatDays = listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+                apps = emptyList()
+            ),
             onDeleteClick = {},
             onCheckAnalyticsClick = {},
             onDismiss = {}
@@ -603,70 +757,162 @@ private fun ScheduleSettingsDialogPreview() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @MultiDevicePreview
 @Composable
 fun ScheduleScreenContentPreview() {
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
     AppLockTheme {
-        ScreenSurface(painter = painterResource(R.drawable.bg_schedule_screen)) {
-            ScheduleScreenContent(
-                onAddNewSchedule = {},
-                isCreateScheduleDialogVisible = false,
-                onToggleSchedule = {},
-                onCreateScheduleClick = {},
-                onScheduleSettingsClick = {},
-                onScheduleClick = {},
-                onScheduleSettingsDismissClick = {},
-                onNewScheduleNameChange = {},
-                newScheduleName = "",
-                onNewScheduleDismiss = {},
-                onScheduleDeleteClick = {},
-                onScheduleAnalyticsClick = {},
-                isScheduleSettingsDialogVisible = false,
-                selectedScheduleForSetting = null,
-                modifier = Modifier,
-                schedules = listOf(
-                    Schedule(
-                        name = "Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time",
-                        isActive = true
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+        ) {
+            ScreenSurface(painter = painterResource(R.drawable.bg_schedule_screen)) {
+                ScheduleScreenContent(
+                    onAddNewSchedule = {},
+                    onNewScheduleDismiss = {},
+                    onCreateScheduleClick = {},
+                    onToggleSchedule = {},
+                    onScheduleSettingsClick = {},
+                    onScheduleSettingsDismissClick = {},
+                    onScheduleDeleteClick = {},
+                    onScheduleAnalyticsClick = {},
+                    onScheduleRowClick = {},
+                    isCreateScheduleDialogVisible = false,
+                    isScheduleSettingsDialogVisible = false,
+                    selectedScheduleForSetting = null,
+                    newScheduleName = "",
+                    onNewScheduleNameChange = {},
+                    schedules = listOf(
+                        Schedule(
+                            id = 1,
+                            name = "Lunch Time",
+                            isActive = false,
+                            startTime = LocalTime.now(),
+                            endTime = LocalTime.now().plusHours(5),
+                            repeatDays = listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+                            apps = listOf(
+                                Schedule.App(
+                                    id = 1,
+                                    appId = "com.bbm.applock",
+                                    appName = "App Lock"
+                                )
+                            )
+                        ),
+                        Schedule(
+                            id = 1,
+                            name = "Work Time",
+                            isActive = false,
+                            startTime = LocalTime.now(),
+                            endTime = LocalTime.now().plusHours(5),
+                            repeatDays = listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+                            apps = listOf(
+                                Schedule.App(
+                                    id = 1,
+                                    appId = "com.bbm.applock",
+                                    appName = "App Lock"
+                                ),
+                                Schedule.App(
+                                    id = 1,
+                                    appId = "com.bbm.applock",
+                                    appName = "App Lock"
+                                ),
+                            )
+                        ),
                     ),
-                    Schedule(
-                        name = "Work Time",
-                        isActive = false
-                    ),
-                    Schedule(
-                        name = "Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time",
-                        isActive = true
-                    ),
-                    Schedule(
-                        name = "Work Time",
-                        isActive = false
-                    ),
-                    Schedule(
-                        name = "Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time",
-                        isActive = true
-                    ),
-                    Schedule(
-                        name = "Work Time",
-                        isActive = false
-                    ),
-                    Schedule(
-                        name = "Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time",
-                        isActive = true
-                    ),
-                    Schedule(
-                        name = "Work Time",
-                        isActive = false
-                    ),
-                    Schedule(
-                        name = "Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time Lunch Time",
-                        isActive = true
-                    ),
-                    Schedule(
-                        name = "Work Time",
-                        isActive = false
-                    ),
+                    imageLoader = ImageLoader.Builder(LocalContext.current).build(),
+                    sheetState = sheetState,
+                    controlledApps = emptyList(),
+                    onControlledAppSelect = { },
+                    selectedApps = emptySet(),
+                    selectedRepeatDays = emptySet(),
+                    onRepeatDaysChangeClick = {},
+                    onSelectTimeSlot = { _, _ -> },
+                    startTime = LocalTime.now(),
+                    endTime = LocalTime.now().plusHours(1),
+                    modifier = Modifier,
                 )
-            )
+            }
         }
     }
 }
+
+//@OptIn(ExperimentalMaterial3Api::class)
+//@MultiDevicePreview
+//@Composable
+//fun ScheduleScreenContentPreview2() {
+//    val sheetState = rememberModalBottomSheetState(
+//        skipPartiallyExpanded = true
+//    )
+//    LaunchedEffect(Unit) {
+//        sheetState.show()
+//    }
+//    AppLockTheme {
+//        Box(
+//            modifier = Modifier
+//                .fillMaxSize()
+//                .imePadding()
+//        ) {
+//            ScreenSurface(painter = painterResource(R.drawable.bg_schedule_screen)) {
+//                ScheduleScreenContent(
+//                    onAddNewSchedule = {},
+//                    onNewScheduleDismiss = {},
+//                    onCreateScheduleClick = {},
+//                    onToggleSchedule = {},
+//                    onScheduleSettingsClick = {},
+//                    onScheduleSettingsDismissClick = {},
+//                    onScheduleDeleteClick = {},
+//                    onScheduleAnalyticsClick = {},
+//                    onScheduleClick = {},
+//                    isCreateScheduleDialogVisible = true,
+//                    isScheduleSettingsDialogVisible = false,
+//                    selectedScheduleForSetting = null,
+//                    newScheduleName = "",
+//                    onNewScheduleNameChange = {},
+//                    schedules = listOf(
+//                        Schedule(
+//                            id = 1,
+//                            name = "Lunch Time",
+//                            isActive = false,
+//                            startTime = LocalTime.now(),
+//                            endTime = LocalTime.now().plusHours(5),
+//                            repeatDays = listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+//                            apps = listOf(
+//                                Schedule.App(
+//                                    id = 1,
+//                                    appId = "com.bbm.applock",
+//                                    appName = "App Lock"
+//                                )
+//                            )
+//                        ),
+//                        Schedule(
+//                            id = 1,
+//                            name = "Work Time",
+//                            isActive = false,
+//                            startTime = LocalTime.now(),
+//                            endTime = LocalTime.now().plusHours(5),
+//                            repeatDays = listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+//                            apps = listOf(
+//                                Schedule.App(
+//                                    id = 1,
+//                                    appId = "com.bbm.applock",
+//                                    appName = "App Lock"
+//                                ),
+//                                Schedule.App(
+//                                    id = 1,
+//                                    appId = "com.bbm.applock",
+//                                    appName = "App Lock"
+//                                ),
+//                            )
+//                        ),
+//                    ),
+//                    imageLoader = ImageLoader.Builder(LocalContext.current).build(),
+//                    sheetState = sheetState
+//                )
+//            }
+//        }
+//    }
+//}

@@ -1,113 +1,109 @@
 package com.applock.data.localdb.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
-import androidx.room.OnConflictStrategy.Companion.IGNORE
-import androidx.room.OnConflictStrategy.Companion.REPLACE
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import com.applock.data.localdb.entity.BlockedAppEntity
-import com.applock.data.localdb.entity.DateEntity
+import com.applock.data.localdb.entity.AppEntity
 import com.applock.data.localdb.entity.ScheduleEntity
-import com.applock.data.localdb.entity.ScheduleWithDatesDTO
-import com.applock.data.localdb.entity.TimeSlotEntity
+import com.applock.data.localdb.entity.ScheduleWithApps
 import kotlinx.coroutines.flow.Flow
-import java.time.LocalDate
 import java.time.LocalTime
 
 @Dao
 interface ScheduleDao {
-    @Insert(onConflict = IGNORE)
-    suspend fun createSchedule(schedule: ScheduleEntity)
+    // CREATE
+    @Insert
+    suspend fun insertSchedule(schedule: ScheduleEntity): Long
 
-    @Query("SELECT * FROM schedule_table")
-    fun getAllSchedules(): Flow<List<ScheduleEntity>>
+    @Insert
+    suspend fun insertApps(apps: List<AppEntity>)
 
-    @Query("UPDATE schedule_table SET isActive = :isActive WHERE id = :scheduleId")
-    suspend fun updateActiveStatus(scheduleId: Int, isActive: Boolean)
-
-    @Delete
-    suspend fun deleteSchedule(schedule: ScheduleEntity)
+    // READ
+    @Transaction
+    @Query("SELECT * FROM schedules")
+    fun getAllSchedules(): Flow<List<ScheduleWithApps>>
 
     @Transaction
-    @Query("SELECT * FROM schedule_table WHERE id = :scheduleId")
-    fun getScheduleWithDates(scheduleId: Int): Flow<ScheduleWithDatesDTO>
+    @Query("SELECT * FROM schedules WHERE id = :id")
+    fun getScheduleById(id: Long): Flow<ScheduleWithApps?>
 
-
-    @Insert(onConflict = IGNORE)
-    suspend fun createDateEntry(date: DateEntity): Long
-
-    @Query("SELECT id FROM date_table WHERE epochDate = :epochDate AND scheduleId = :scheduleId LIMIT 1")
-    suspend fun getDateIdIfExists(epochDate: LocalDate, scheduleId: Int): Int?
-
-    @Delete
-    suspend fun deleteDateEntry(date: DateEntity)
-
-    @Insert(onConflict = REPLACE)
-    suspend fun createTimeSlot(timeSlot: TimeSlotEntity): Long
-
-    @Query("SELECT id FROM time_slot_table WHERE startTime = :startTime AND endTime = :endTime AND dateId = :dateId LIMIT 1")
-    suspend fun getTimeSlotIdIfExists(startTime: LocalTime, endTime: LocalTime, dateId: Int): Int?
+    // UPDATE
+    @Update
+    suspend fun updateSchedule(schedule: ScheduleEntity)
 
     @Update
-    suspend fun updateTimeSlot(timeSlot: TimeSlotEntity)
+    suspend fun updateApps(apps: List<AppEntity>)
 
-    @Delete
-    suspend fun deleteTimeSlot(timeSlot: TimeSlotEntity)
+    // DELETE
+    @Query("DELETE FROM schedules WHERE id = :id")
+    suspend fun deleteSchedule(id: Long)
 
-    @Insert(onConflict = IGNORE)
-    suspend fun createBlockAppList(list: List<BlockedAppEntity>)
+    @Query("DELETE FROM apps WHERE scheduleId = :scheduleId")
+    suspend fun deleteAppsByScheduleId(scheduleId: Long)
 
+    // CHANGE ACTIVE STATUS
+    @Query("UPDATE schedules SET isActive = :isActive WHERE id = :scheduleId")
+    suspend fun updateScheduleActiveStatus(scheduleId: Long, isActive: Boolean)
 
     @Query(
-        """
-        SELECT EXISTS (
-            SELECT 1
-            FROM blocked_app_table AS b
-            INNER JOIN time_slot_table AS t ON b.timeSlotId = t.id
-            INNER JOIN date_table AS d ON t.dateId = d.id
-            INNER JOIN schedule_table AS s ON d.scheduleId = s.id
-            WHERE 
-                b.packageName = :packageName
-                AND d.epochDate = :date
-                AND s.isActive = 1
-                AND (
-                    (t.startTime <= t.endTime AND :time BETWEEN t.startTime AND t.endTime)
-                     OR
-                    (t.startTime > t.endTime AND (:time >= t.startTime OR :time <= t.endTime))
-                )
-        )
+        value = """
+        SELECT COUNT(*) FROM schedules s
+        INNER JOIN apps a ON s.id = a.scheduleId
+        WHERE s.isActive = 1
+            AND ((s.startTime <= s.endTime AND :currentTime BETWEEN s.startTime AND s.endTime)
+                    OR
+                    (s.startTime > s.endTime AND (:currentTime >= s.startTime OR :currentTime <= s.endTime)))
+            AND a.appId = :appPackage
         """
     )
-    suspend fun isPackageBlocked(
-        packageName: String,
-        date: LocalDate,
-        time: LocalTime
-    ): Boolean
+    suspend fun isAppRestrictedNowWithActiveSchedule(
+        currentTime: Long,
+        appPackage: String,
+    ): Int
 
-    @Query(
+    /*@Query(
         """
-        SELECT EXISTS (
-        SELECT 1
-        FROM time_slot_table AS t
-        INNER JOIN date_table AS d ON t.dateId = d.id
-        INNER JOIN schedule_table AS s ON d.scheduleId = s.id
-        WHERE 
-            d.epochDate = :date
-            AND (
-                (t.startTime <= t.endTime AND :time BETWEEN t.startTime AND t.endTime)
-                OR
-                (t.startTime > t.endTime AND (:time >= t.startTime OR :time <= t.endTime))
-            )
-            AND s.id = :scheduleId
+        SELECT COUNT(*) FROM schedules s
+        INNER JOIN apps a ON s.id = a.scheduleId
+        WHERE s.id = :scheduleId
             AND s.isActive = 1
+            AND ((s.startTime <= s.endTime AND :currentTime BETWEEN s.startTime AND s.endTime)
+                    OR
+                    (s.startTime > s.endTime AND (:currentTime >= s.startTime OR :currentTime <= s.endTime)))
+        """
+    )
+    suspend fun isScheduleActiveAndRunning(
+        scheduleId: Long,
+        currentTime: LocalTime,
+    ): Int*/
+    @Query(
+        """
+    SELECT s.* FROM schedules s
+    INNER JOIN apps a ON s.id = a.scheduleId
+    WHERE s.id = :scheduleId
+        AND s.isActive = 1
+        AND (
+            (s.startTime <= s.endTime AND :currentTime BETWEEN s.startTime AND s.endTime)
+            OR
+            (s.startTime > s.endTime AND (:currentTime >= s.startTime OR :currentTime <= s.endTime))
+        )
+    """
+    )
+    suspend fun getActiveAndRunningSchedule(
+        scheduleId: Long,
+        currentTime: LocalTime,
+    ): ScheduleEntity?
+
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM schedules
+            WHERE name = :scheduleName
+                OR (startTime = :startTime AND endTime = :endTime)
         )
         """
     )
-    suspend fun hasActiveTimeSlotNow(scheduleId: Int, date: LocalDate, time: LocalTime): Boolean
-
-    @Query("DELETE FROM blocked_app_table WHERE timeSlotId = :id")
-    suspend fun deleteAppsWithTimeSlotId(id: Int)
+    fun isScheduleExists(scheduleName: String, startTime: LocalTime, endTime: LocalTime): Boolean
 }

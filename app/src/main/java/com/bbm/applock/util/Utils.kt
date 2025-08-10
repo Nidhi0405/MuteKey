@@ -17,17 +17,6 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-fun formatUsageTime(ms: Long): String {
-    val totalSecs = ms / 1000
-    val hours = totalSecs / 3600
-    val minutes = (totalSecs % 3600) / 60
-
-    return when {
-        hours > 0 -> "$hours.$minutes"
-        minutes > 0 -> "0.$minutes"
-        else -> "0.0"
-    }
-}
 
 
 inline fun Modifier.noRippleClickable(

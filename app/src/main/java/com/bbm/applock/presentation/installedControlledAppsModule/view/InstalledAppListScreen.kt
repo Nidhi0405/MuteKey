@@ -51,10 +51,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
 import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.PermissionInfo
+import com.applock.domain.util.toReadableDuration
 import com.bbm.applock.R
 import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAppVM
@@ -63,11 +63,9 @@ import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.util.AppIcon
 import com.bbm.applock.util.FullScreenLoader
-import com.bbm.applock.util.LifeCycleEvent
 import com.bbm.applock.util.MultiDevicePreview
 import com.bbm.applock.util.ScreenSurface
 import com.bbm.applock.util.SearchBar
-import com.bbm.applock.util.formatUsageTime
 import com.bbm.applock.util.noRippleClickable
 
 @Composable
@@ -229,7 +227,7 @@ private fun InstalledAppListScreenContent(
                 Text(
                     stringResource(R.string.most_used_apps),
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.W400,
                         color = TextPrimary
                     )
@@ -237,7 +235,7 @@ private fun InstalledAppListScreenContent(
                 Text(
                     stringResource(R.string.hours_week),
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.W400,
                         color = TextPrimary
                     )
@@ -390,7 +388,7 @@ fun AppUsageRow(
                 text = info.name,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.W400
+                    fontWeight = FontWeight.W500
                 )
             )
 
@@ -416,9 +414,12 @@ fun AppUsageRow(
             }
         }
         Text(
-            text = formatUsageTime(info.usageTimeInMillis),
-            fontSize = 14.sp,
-            color = Color.Gray
+            text = info.usageTimeInMillis.toReadableDuration(),
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W500,
+                color = TextPrimary
+            )
         )
     }
 }

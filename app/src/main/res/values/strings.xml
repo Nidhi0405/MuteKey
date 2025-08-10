@@ -9,7 +9,7 @@
     <string name="schedule_name_validation_error">Please enter schedule name</string>
     <string name="my_schedules">My Schedules</string>
     <string name="new_schedule">New Schedule</string>
-    <string name="enter_schedule_name">Enter New Schedule Name</string>
+    <string name="enter_schedule_name">Enter Schedule Name</string>
     <string name="btn_cancel">Cancel</string>
     <string name="btn_create_schedule">Create Schedule</string>
     <string name="btn_delete_schedule">Delete</string>
@@ -40,4 +40,12 @@
     <string name="last_7_days_top_5_app_engagement">Last 7 Days: Top 5 App Engagement</string>
     <string name="most_used_apps">Most Used Apps</string>
     <string name="hours_week">Hours/Week</string>
+    <string name="schedule_detail">Schedule Detail</string>
+    <string name="repeat">Repeat</string>
+    <string name="which_days">Which Days?</string>
+    <string name="controlled_apps">Controlled Apps</string>
+    <string name="cancel">Cancel</string>
+    <string name="create_your_schedule">Create your schedule</string>
+    <string name="update_your_schedule">Update your schedule</string>
+    <string name="scheduled_apps">Scheduled Apps</string>
 </resources>

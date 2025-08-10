@@ -1,31 +1,34 @@
 package com.applock.domain.repo
 
 import com.applock.domain.model.Schedule
-import com.applock.domain.model.ScheduleWithDates
 import kotlinx.coroutines.flow.Flow
-import java.time.LocalDate
 import java.time.LocalTime
 
 
 interface ScheduleRepo {
     fun getAllSchedules(): Flow<List<Schedule>>
-    suspend fun createSchedule(schedule: Schedule)
-    suspend fun updateActiveStatus(schedule: Schedule)
-    suspend fun deleteSchedule(schedule: Schedule)
-    suspend fun createDate(date: Schedule.DateInput): Long
-    suspend fun createTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput): Long
-    suspend fun updateTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput)
-    suspend fun deleteTimeSlot(timeSlotsInput: Schedule.DateInput.TimeSlotsInput)
-    suspend fun createBlockAppList(list: List<Schedule.DateInput.TimeSlotsInput.BlockedAppsInput>)
-    suspend fun deleteAppsWithTimeSlotId(id: Int)
-
-    fun getScheduleWithDates(scheduleId: Int): Flow<ScheduleWithDates>
-
-    suspend fun isCurrentlyBlockedApp(
-        packageName: String,
-        date: LocalDate,
-        time: LocalTime
+    fun getScheduleById(id: Long): Flow<Schedule?>
+    suspend fun createSchedule(schedule: Schedule): Long
+    suspend fun updateSchedule(schedule: Schedule)
+    suspend fun deleteSchedule(scheduleId: Long)
+    suspend fun isScheduleExists(
+        scheduleName: String,
+        startTime: LocalTime,
+        endTime: LocalTime
     ): Boolean
 
-    suspend fun hasActiveTimeSlotNow(scheduleId: Int, date: LocalDate, time: LocalTime): Boolean
+    suspend fun updateActiveStatus(
+        scheduleId: Long,
+        isActive: Boolean
+    )
+
+    suspend fun isAppRestrictedWithActiveSchedule(
+        currentTimeMillis: Long,
+        appPackage: String
+    ): Boolean
+
+    suspend fun isScheduleActiveAndRunning(
+        scheduleId: Long,
+        currentTimeMillis: LocalTime,
+    ): Boolean
 }
