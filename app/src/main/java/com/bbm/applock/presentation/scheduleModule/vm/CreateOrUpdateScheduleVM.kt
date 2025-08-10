@@ -125,6 +125,7 @@ class CreateOrUpdateScheduleVM @Inject constructor(
                     _isCreateScheduleDialogVisible.emit(false)
                 },
                 onFailure = {
+                    clear()
                     it.stackTraceToString().logE()
                     _isCreateScheduleDialogVisible.emit(true)
                     _state.emit(UiState.Failure(null, it.message.orEmpty()))

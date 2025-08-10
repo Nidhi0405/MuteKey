@@ -9,7 +9,6 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.toRoute
 import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.view.AnalyticsScreen
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
@@ -48,7 +47,7 @@ private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
 
     composable<MainScreens.ScheduleScreenRoute> {
         val vm = hiltViewModel<SchedulesScreenVM>()
-        val scheduleVM = hiltViewModel<CreateOrUpdateScheduleVM>()
+        val scheduleVM = hiltViewModel<CreateOrUpdateScheduleVM>(key = "ScheduleScreen")
         ScreenSurface(
             Modifier.fillMaxSize(),
             painter = painterResource(R.drawable.bg_schedule_screen)
@@ -79,9 +78,8 @@ private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
     }
 
     composable<MainScreens.ScheduleDetailScreenRoute> {
-        val schedule = it.toRoute<MainScreens.ScheduleDetailScreenRoute>()
         val vm = hiltViewModel<ScheduleDetailScreenVM>()
-        val scheduleVM = hiltViewModel<CreateOrUpdateScheduleVM>()
+        val scheduleVM = hiltViewModel<CreateOrUpdateScheduleVM>(key = "ScheduleDetailScreen")
         ScreenSurface {
             ScheduleDetailScreen(
                 onBackPress = {

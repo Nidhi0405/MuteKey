@@ -116,7 +116,9 @@ fun ScheduleScreen(
         launch {
             scheduleVM.state.collect {
                 if (it is UiState.Failure<*>) {
-                    snackbarHostState.showSnackbar(message = it.message)
+                    it.consumeOnce()?.message?.let { message ->
+                        snackbarHostState.showSnackbar(message = message)
+                    }
                 }
             }
         }

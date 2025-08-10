@@ -111,7 +111,9 @@ fun ScheduleDetailScreen(
 
                 is UiState.Failure<*> -> {
                     launch {
-                        snackbarHostState.showSnackbar(message = message.message)
+                        message.consumeOnce()?.message?.let {
+                            snackbarHostState.showSnackbar(message = it)
+                        }
                     }
                 }
 
