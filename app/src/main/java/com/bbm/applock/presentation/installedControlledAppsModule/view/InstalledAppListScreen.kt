@@ -179,6 +179,10 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
                         context.startActivity(intent)
                     }
                 }
+
+                PermissionInfo.PermissionType.READ_NOTIFICATION -> {
+                    context.startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+                }
             }
         },
         modifier = Modifier

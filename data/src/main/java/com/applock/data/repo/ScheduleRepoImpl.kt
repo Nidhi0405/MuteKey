@@ -68,13 +68,24 @@ class ScheduleRepoImpl @Inject constructor(
     }
 
     override suspend fun isAppRestrictedWithActiveSchedule(
-        currentTimeMillis: Long,
+        currentTimeMillis: LocalTime,
         appPackage: String
     ): Boolean {
+        val dayOfWeek = LocalDate
+            .now()
+            .atTime(currentTimeMillis)
+            .dayOfWeek
+            .getDisplayName(
+                TextStyle.FULL,
+                Locale.ENGLISH
+            )
         return scheduleDao.isAppRestrictedNowWithActiveSchedule(
             currentTime = currentTimeMillis,
             appPackage = appPackage
-        ) > 0
+        )?.repeatDays
+            ?.any {
+                it.toString().equals(dayOfWeek, ignoreCase = true)
+            } == true
     }
 
     override suspend fun isScheduleActiveAndRunning(

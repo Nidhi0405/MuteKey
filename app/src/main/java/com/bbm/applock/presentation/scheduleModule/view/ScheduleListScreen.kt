@@ -67,6 +67,7 @@ import com.bbm.applock.ui.theme.TextPrimaryGradient
 import com.bbm.applock.util.MultiDevicePreview
 import com.bbm.applock.util.ScreenSurface
 import com.bbm.applock.util.noRippleClickable
+import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalTime
 
@@ -107,8 +108,17 @@ fun ScheduleScreen(
         }
     )
     LaunchedEffect(Unit) {
-        vm.errorAlertMsg.collect { message ->
-            snackbarHostState.showSnackbar(message = context.getString(message))
+        launch {
+            vm.errorAlertMsg.collect { message ->
+                snackbarHostState.showSnackbar(message = context.getString(message))
+            }
+        }
+        launch {
+            scheduleVM.state.collect {
+                if (it is UiState.Failure<*>) {
+                    snackbarHostState.showSnackbar(message = it.message)
+                }
+            }
         }
     }
 

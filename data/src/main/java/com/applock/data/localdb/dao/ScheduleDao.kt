@@ -49,7 +49,7 @@ interface ScheduleDao {
 
     @Query(
         value = """
-        SELECT COUNT(*) FROM schedules s
+        SELECT s.* FROM schedules s
         INNER JOIN apps a ON s.id = a.scheduleId
         WHERE s.isActive = 1
             AND ((s.startTime <= s.endTime AND :currentTime BETWEEN s.startTime AND s.endTime)
@@ -59,9 +59,9 @@ interface ScheduleDao {
         """
     )
     suspend fun isAppRestrictedNowWithActiveSchedule(
-        currentTime: Long,
+        currentTime: LocalTime,
         appPackage: String,
-    ): Int
+    ): ScheduleEntity?
 
     /*@Query(
         """

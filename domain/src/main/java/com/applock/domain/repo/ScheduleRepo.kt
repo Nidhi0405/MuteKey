@@ -23,7 +23,7 @@ interface ScheduleRepo {
     )
 
     suspend fun isAppRestrictedWithActiveSchedule(
-        currentTimeMillis: Long,
+        currentTimeMillis: LocalTime,
         appPackage: String
     ): Boolean
 

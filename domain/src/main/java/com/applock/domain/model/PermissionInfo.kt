@@ -21,6 +21,7 @@ data class PermissionInfo(
         NOTIFICATION,
         USAGE,
         ACCESSIBILITY,
-        AUTO_START
+        AUTO_START,
+        READ_NOTIFICATION
     }
 }

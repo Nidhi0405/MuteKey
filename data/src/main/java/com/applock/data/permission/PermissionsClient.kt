@@ -27,7 +27,7 @@ internal class PermissionsClient @Inject internal constructor(
                         isOptional = permissionConfig.isOptional
                     )
 
-                    PermissionTypeDTO.NOTIFICATIONS -> PermissionDTO(
+                    PermissionTypeDTO.POST_NOTIFICATIONS -> PermissionDTO(
                         permissionType = permissionType,
                         granted = notificationPermissionChecker.hasPermission(appContext),
                         isOptional = permissionConfig.isOptional
@@ -44,6 +44,14 @@ internal class PermissionsClient @Inject internal constructor(
                         granted = accessibilityPermission.hasPermission(
                             appContext,
                             permissionConfig.accessibilityService!!
+                        ),
+                        isOptional = false,
+                    )
+
+                    PermissionTypeDTO.READ_NOTIFICATION -> PermissionDTO(
+                        permissionType = permissionType,
+                        granted = notificationPermissionChecker.isNotificationReadServiceEnabled(
+                            appContext
                         ),
                         isOptional = false,
                     )

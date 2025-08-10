@@ -6,6 +6,7 @@ import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import com.applock.core.logE
 import com.applock.domain.usecase.IsCurrentlyBlockedAppUseCase
+import com.bbm.applock.BuildConfig
 import com.bbm.applock.hiltmodule.AppBlockAccessibilityModule
 import com.bbm.applock.presentation.BlockScreenActivity
 import dagger.hilt.android.EntryPointAccessors
@@ -23,12 +24,12 @@ class AppBlockAccessibilityService : AccessibilityService() {
     private val throttledInput = throttleStringInput { packageName ->
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                delay(300)
+                delay(100)
+//                delay(300)
                 val rootPkg = rootInActiveWindow?.packageName?.toString().orEmpty()
                 if (packageName != rootPkg) return@launch
                 val isBlocked = isCurrentlyBlockedApp.invoke(
                     packageName,
-                    LocalDate.now(),
                     LocalTime.now()
                 )
                 if (isBlocked) {
@@ -103,18 +104,20 @@ class AppBlockAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    val String.isValidPackage: Boolean
-        get() {
-            if (this in listOf(
-                    "com.android.systemui",
-                    "com.google.android.googlequicksearchbox"
-                )
-            ) return false
-            if (this.contains("launcher")) return false
-            if (this == this@AppBlockAccessibilityService.packageName) return false
-            return true
-        }
+
 }
+
+val String.isValidPackage: Boolean
+    get() {
+        if (this in listOf(
+                "com.android.systemui",
+                "com.google.android.googlequicksearchbox"
+            )
+        ) return false
+        if (this.contains("launcher")) return false
+        if (this == BuildConfig.APPLICATION_ID) return false
+        return true
+    }
 
 fun throttleStringInput(
     scope: CoroutineScope = CoroutineScope(Dispatchers.IO),

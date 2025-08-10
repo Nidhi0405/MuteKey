@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -118,17 +119,34 @@ fun CreateOrUpdateScheduleBottomSheet(
                 .background(WhiteColor)
         ) {
             Spacer(Modifier.height(20.dp))
-            Text(
-                text = if (schedule == null)
-                    stringResource(R.string.create_your_schedule)
-                else stringResource(R.string.update_your_schedule),
-                style = MaterialTheme.typography.titleLarge.copy(
-                    brush = TextPrimaryGradient,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                modifier = Modifier.padding(horizontal = 26.dp),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 26.dp)
+            ) {
+                Text(
+                    text = if (schedule == null)
+                        stringResource(R.string.create_your_schedule)
+                    else stringResource(R.string.update_your_schedule),
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        brush = TextPrimaryGradient,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.weight(1f),
+                )
+                Image(
+                    painterResource(R.drawable.ic_add_gradient),
+                    contentDescription = "Close",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .rotate(45f)
+                        .noRippleClickable {
+                            onDismiss.invoke()
+                        }
+                )
+            }
+
             Spacer(Modifier.height(18.dp))
             Card(
                 modifier = Modifier

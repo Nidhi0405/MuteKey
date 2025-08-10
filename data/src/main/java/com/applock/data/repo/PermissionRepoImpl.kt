@@ -51,7 +51,13 @@ class PermissionRepoImpl @Inject internal constructor(
             )
             .addPermissionConfig(
                 PermissionConfig(
-                    permissionType = PermissionTypeDTO.NOTIFICATIONS,
+                    permissionType = PermissionTypeDTO.READ_NOTIFICATION,
+                    isOptional = false
+                )
+            )
+            .addPermissionConfig(
+                PermissionConfig(
+                    permissionType = PermissionTypeDTO.POST_NOTIFICATIONS,
                     minApiLevel = Build.VERSION_CODES.TIRAMISU
                 )
             ).build()

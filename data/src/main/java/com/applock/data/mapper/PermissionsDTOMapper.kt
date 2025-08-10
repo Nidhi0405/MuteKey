@@ -29,7 +29,8 @@ fun PermissionTypeDTO.toDomain(): PermissionInfo.PermissionType {
         PermissionTypeDTO.USAGE -> PermissionInfo.PermissionType.USAGE
         PermissionTypeDTO.ACCESSIBILITY -> PermissionInfo.PermissionType.ACCESSIBILITY
         PermissionTypeDTO.AUTO_START -> PermissionInfo.PermissionType.AUTO_START
-        PermissionTypeDTO.NOTIFICATIONS -> PermissionInfo.PermissionType.NOTIFICATION
+        PermissionTypeDTO.POST_NOTIFICATIONS -> PermissionInfo.PermissionType.NOTIFICATION
+        PermissionTypeDTO.READ_NOTIFICATION -> PermissionInfo.PermissionType.READ_NOTIFICATION
     }
 }
 

@@ -10,12 +10,11 @@ class IsCurrentlyBlockedAppUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(
         packageName: String,
-        date: LocalDate,
         time: LocalTime,
     ): Boolean {
-        TODO()
-//        return localAppRepo.isAppRestrictedWithActiveSchedule(
-//
-//        )
+        return localAppRepo.isAppRestrictedWithActiveSchedule(
+            time,
+            packageName,
+        )
     }
 }

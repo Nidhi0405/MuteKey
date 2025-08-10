@@ -23,6 +23,7 @@ enum class PermissionTypeDTO {
     USAGE,
     ACCESSIBILITY,
     AUTO_START,
-    NOTIFICATIONS;
+    POST_NOTIFICATIONS,
+    READ_NOTIFICATION;
 }
 
