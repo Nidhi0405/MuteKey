@@ -61,6 +61,8 @@ import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAp
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.TextPrimary
+import com.bbm.applock.ui.theme.TextPrimaryGradient
+import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.util.AppIcon
 import com.bbm.applock.util.FullScreenLoader
 import com.bbm.applock.util.MultiDevicePreview
@@ -245,22 +247,56 @@ private fun InstalledAppListScreenContent(
                     )
                 )
             }
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 30.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                state = listState
-            ) {
-                items(appList.size, key = { appList[it].packageName }) {
-                    AppUsageRow(
-                        appList[it],
-                        painter.invoke(appList[it]),
-                        onAddToControlledApp = {
-                            onAddOrRemoveControlledApp(appList[it])
-                        },
-                        modifier = Modifier
+            if (appList.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            horizontal = 18.dp,
+                            vertical = 12.dp
+                        ),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        stringResource(R.string.no_apps_on_device),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            brush = TextPrimaryGradient,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.W600
+                        ),
+                        textAlign = TextAlign.Center
                     )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.we_couldn_t_find_any_apps_on_your_device_please_make_sure_usage_access_permission_is_granted_in_settings_and_try_again),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 18.sp,
+                            color = TextSecondary,
+                            fontWeight = FontWeight.W400
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(20.dp))
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 30.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    state = listState
+                ) {
+                    items(appList.size, key = { appList[it].packageName }) {
+                        AppUsageRow(
+                            appList[it],
+                            painter.invoke(appList[it]),
+                            onAddToControlledApp = {
+                                onAddOrRemoveControlledApp(appList[it])
+                            },
+                            modifier = Modifier
+                        )
+                    }
                 }
             }
         }

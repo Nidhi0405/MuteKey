@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.bbm.applock.presentation.navigation.BottomNavBar
 import com.bbm.applock.presentation.navigation.BottomNavItem
+import com.bbm.applock.presentation.navigation.MainScreens
 import com.bbm.applock.presentation.navigation.NavigationGraph
 import com.bbm.applock.ui.theme.AppLockTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -39,10 +42,21 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
-                        BottomNavBar(
-                            navController = navController,
-                            items = navItems
-                        )
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentRoute = navBackStackEntry?.destination?.route
+                        if (currentRoute in listOf(
+                                MainScreens.InstalledAppListScreenRoute::class.qualifiedName,
+                                MainScreens.ControlledAppListScreenRoute::class.qualifiedName,
+                                MainScreens.ScheduleScreenRoute::class.qualifiedName,
+                                MainScreens.AnalyticsScreenRoute::class.qualifiedName,
+                                MainScreens.ProfileScreenRoute::class.qualifiedName
+                            )
+                        ) {
+                            BottomNavBar(
+                                navController = navController,
+                                items = navItems
+                            )
+                        }
                     }
                 ) { innerPadding ->
                     NavigationGraph(

@@ -48,4 +48,11 @@
     <string name="create_your_schedule">Create your schedule</string>
     <string name="update_your_schedule">Update your schedule</string>
     <string name="scheduled_apps">Scheduled Apps</string>
+    <string name="schedule_name_must_be_at_least_3_characters">Schedule name must be at least 3 characters</string>
+    <string name="start_time_must_be_before_end_time">Start and end time must not be same</string>
+    <string name="select_at_least_one_app">Select at least one app to create schedule</string>
+    <string name="create_your_first_schedule_to_start_managing_your_app_usage_throughout_the_day">Create your first schedule to start managing your app usage throughout the day.</string>
+    <string name="no_schedules_yet">No schedules yet</string>
+    <string name="we_couldn_t_find_any_apps_on_your_device_please_make_sure_usage_access_permission_is_granted_in_settings_and_try_again">We couldn’t find any apps on your device. Please make sure usage access permission is granted in Settings and try again.</string>
+    <string name="no_apps_on_device">No Apps on device?</string>
 </resources>

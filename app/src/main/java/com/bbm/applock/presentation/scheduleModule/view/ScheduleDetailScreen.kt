@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -47,12 +48,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
 import coil3.ImageLoader
 import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.Schedule
 import com.bbm.applock.R
 import com.bbm.applock.presentation.UiState
+import com.bbm.applock.presentation.UiState.Ideal.consumeOnce
 import com.bbm.applock.presentation.scheduleModule.view.component.CreateOrUpdateScheduleBottomSheet
 import com.bbm.applock.presentation.scheduleModule.view.component.TimeSelectionCard
 import com.bbm.applock.presentation.scheduleModule.view.component.WeekDaySelectionRow
@@ -63,6 +66,7 @@ import com.bbm.applock.ui.theme.DisableColor
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.TextPrimaryGradient
 import com.bbm.applock.util.AppIcon
+import com.bbm.applock.util.LifeCycleEvent
 import com.bbm.applock.util.noRippleClickable
 import com.bbm.applock.util.toHourMinute
 import kotlinx.coroutines.launch
@@ -99,6 +103,12 @@ fun ScheduleDetailScreen(
             newState != SheetValue.Hidden
         }
     )
+    val context = LocalContext.current
+    LifeCycleEvent {
+        if (it == Lifecycle.Event.ON_RESUME) {
+            scheduleVM.clear()
+        }
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
         val stateBlock = { message: UiState ->
@@ -119,7 +129,13 @@ fun ScheduleDetailScreen(
 
                 UiState.Ideal -> {}
                 UiState.Loading -> {}
-                is UiState.ValidationError -> {}
+                is UiState.ValidationError -> {
+                    launch {
+                        message.consumeOnce()?.message?.let {
+                            snackbarHostState.showSnackbar(message = context.getString(it))
+                        }
+                    }
+                }
             }
         }
         launch {
@@ -166,10 +182,10 @@ fun ScheduleDetailScreen(
                 if (!isCreateScheduleDialogVisible) {
                     scheduleVM.fillUpdateScheduleFields(schedule)
                 }
-                scheduleVM.toggleCreateScheduleDialog()
+                scheduleVM.toggleUpdateScheduleDialog(schedule)
             },
             onUpdateDialogDismiss = {
-                scheduleVM.toggleCreateScheduleDialog()
+                scheduleVM.toggleUpdateScheduleDialog(schedule)
             },
             onDeleteSchedule = {
                 scheduleVM.deleteSchedule(schedule)
@@ -297,7 +313,7 @@ fun ScheduleDetailScreenContent(
             Spacer(Modifier.height(4.dp))
 
             WeekDaySelectionRow(
-                selectedDays = schedule.repeatDays.toSet(),
+                selectedDays = schedule.repeatDays?.toSet() ?: emptySet(),
                 onDaySelected = {},
                 isViewing = true,
                 modifier = Modifier.fillMaxWidth()

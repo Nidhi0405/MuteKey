@@ -12,6 +12,7 @@ interface ScheduleRepo {
     suspend fun updateSchedule(schedule: Schedule)
     suspend fun deleteSchedule(scheduleId: Long)
     suspend fun isScheduleExists(
+        scheduleId: Long,
         scheduleName: String,
         startTime: LocalTime,
         endTime: LocalTime

@@ -16,7 +16,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
 import java.time.LocalTime
 
 class AppBlockAccessibilityService : AccessibilityService() {
@@ -24,7 +23,6 @@ class AppBlockAccessibilityService : AccessibilityService() {
     private val throttledInput = throttleStringInput { packageName ->
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                delay(100)
 //                delay(300)
                 val rootPkg = rootInActiveWindow?.packageName?.toString().orEmpty()
                 if (packageName != rootPkg) return@launch
@@ -111,17 +109,20 @@ val String.isValidPackage: Boolean
     get() {
         if (this in listOf(
                 "com.android.systemui",
-                "com.google.android.googlequicksearchbox"
+                "com.google.android.googlequicksearchbox",
+                "com.google.android.apps.messaging",
+                BuildConfig.APPLICATION_ID
             )
-        ) return false
+        ) {
+            return false
+        }
         if (this.contains("launcher")) return false
-        if (this == BuildConfig.APPLICATION_ID) return false
         return true
     }
 
 fun throttleStringInput(
     scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
-    delayMillis: Long = 1000L,
+    delayMillis: Long = 300L,
     action: (String) -> Unit
 ): (String) -> Unit {
     var job: Job? = null

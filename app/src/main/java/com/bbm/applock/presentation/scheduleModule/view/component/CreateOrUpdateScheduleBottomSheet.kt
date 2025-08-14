@@ -361,7 +361,6 @@ fun CreateOrUpdateScheduleBottomSheet(
                         .height(44.dp),
                     onClick = onAddOrUpdateClick,
                     enabled = (selectedApps.isNotEmpty()
-                            && selectedDays.isNotEmpty()
                             && scheduleName.length > 2),
                     colors = ButtonDefaults.buttonColors(containerColor = AquaBlue)
                 ) {

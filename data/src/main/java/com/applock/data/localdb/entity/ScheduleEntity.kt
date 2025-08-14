@@ -7,6 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalTime
 
 
@@ -17,8 +18,10 @@ data class ScheduleEntity(
     val name: String,
     val startTime: LocalTime,
     val endTime: LocalTime,
-    val repeatDays: List<DayOfWeek>,
-    val isActive: Boolean = false
+    val repeatDays: List<DayOfWeek>?,
+    val isActive: Boolean = false,
+    val isOneTime: Boolean = false,
+    val scheduledDate: LocalDate? = null // only used for one-time schedules
 )
 
 @Entity(

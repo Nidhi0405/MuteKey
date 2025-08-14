@@ -12,15 +12,9 @@ class CreateScheduleUseCase @Inject constructor(
         val name = schedule.name
         val start = schedule.startTime
         val end = schedule.endTime
-        if (repo.isScheduleExists(name, start, end)) {
+        if (repo.isScheduleExists(schedule.id, name, start, end)) {
             return Result.failure(Throwable("Schedule already exists"))
         }
-//        if (scheduleName.isEmpty()) {
-//            return Result.failure(Throwable("Schedule name cannot be empty"))
-//        }
-//        if (scheduleName.length !in 1..20) {
-//            return Result.failure(Throwable("Schedule name must me 1 to 20 characters"))
-//        }
         return result {
             repo.createSchedule(schedule = schedule)
         }

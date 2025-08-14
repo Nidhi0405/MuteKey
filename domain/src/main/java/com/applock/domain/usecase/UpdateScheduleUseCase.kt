@@ -11,6 +11,12 @@ class UpdateScheduleUseCase @Inject constructor(
     suspend operator fun invoke(
         schedule: Schedule,
     ): Result<Unit> {
+        val name = schedule.name
+        val start = schedule.startTime
+        val end = schedule.endTime
+        if (scheduleRepo.isScheduleExists(schedule.id, name, start, end)) {
+            return Result.failure(Throwable("Schedule already exists"))
+        }
         return result {
             scheduleRepo.updateSchedule(schedule)
         }

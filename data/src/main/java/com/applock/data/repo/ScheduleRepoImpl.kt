@@ -23,13 +23,35 @@ class ScheduleRepoImpl @Inject constructor(
     }
 
     override fun getScheduleById(id: Long): Flow<Schedule?> {
-        return scheduleDao.getScheduleById(id)
+        return scheduleDao.getScheduleWithAppsById(id)
             .map { it?.toDomain() }
     }
 
+    private fun adjustForPastTime(endTime: LocalTime): LocalDate {
+        val today = LocalDate.now()
+        val now = LocalTime.now()
+        return if (now.isAfter(endTime)) today.plusDays(1) else today
+    }
+
     override suspend fun createSchedule(schedule: Schedule): Long {
-        val scheduleEntity = schedule.toEntity()
-        val scheduleId = scheduleDao.insertSchedule(scheduleEntity)
+        val scheduleEntity = schedule.toEntity().let {
+            if (it.repeatDays.isNullOrEmpty()) {
+                it.copy(isOneTime = true)
+            } else {
+                it
+            }
+        }
+        val adjustedDate =
+            if (scheduleEntity.isOneTime) {
+                adjustForPastTime(scheduleEntity.endTime)
+            } else {
+                null
+            }
+        val scheduleId = scheduleDao.insertSchedule(
+            schedule = scheduleEntity.copy(
+                scheduledDate = adjustedDate
+            )
+        )
 
         val appEntities = schedule.apps.map {
             AppEntity(scheduleId = scheduleId, appId = it.appId, appName = it.appName)
@@ -40,8 +62,22 @@ class ScheduleRepoImpl @Inject constructor(
     }
 
     override suspend fun updateSchedule(schedule: Schedule) {
-        val scheduleEntity = schedule.toEntity()
-        scheduleDao.updateSchedule(scheduleEntity)
+        val scheduleEntity = schedule.toEntity().let {
+            if (it.repeatDays.isNullOrEmpty()) {
+                it.copy(isOneTime = true)
+            } else it
+        }
+        val adjustedDate =
+            if (scheduleEntity.isOneTime) {
+                adjustForPastTime(scheduleEntity.endTime)
+            } else {
+                null
+            }
+        scheduleDao.updateSchedule(
+            schedule = scheduleEntity.copy(
+                scheduledDate = adjustedDate
+            )
+        )
 
         // Replace apps
         scheduleDao.deleteAppsByScheduleId(schedule.id)
@@ -56,14 +92,26 @@ class ScheduleRepoImpl @Inject constructor(
     }
 
     override suspend fun isScheduleExists(
+        scheduleId: Long,
         scheduleName: String,
         startTime: LocalTime,
         endTime: LocalTime
     ): Boolean {
-        return scheduleDao.isScheduleExists(scheduleName, startTime, endTime)
+        return scheduleDao.isScheduleExists(scheduleId, scheduleName, startTime, endTime)
     }
 
     override suspend fun updateActiveStatus(scheduleId: Long, isActive: Boolean) {
+        val schedule = scheduleDao.getScheduleById(scheduleId) ?: return
+        if (schedule.isOneTime && isActive) {
+            val adjustedDate = adjustForPastTime(schedule.endTime)
+            scheduleDao.updateSchedule(
+                schedule.copy(
+                    isActive = true,
+                    scheduledDate = adjustedDate
+                )
+            )
+            return
+        }
         scheduleDao.updateScheduleActiveStatus(scheduleId, isActive)
     }
 
@@ -71,8 +119,8 @@ class ScheduleRepoImpl @Inject constructor(
         currentTimeMillis: LocalTime,
         appPackage: String
     ): Boolean {
-        val dayOfWeek = LocalDate
-            .now()
+        val date = LocalDate.now()
+        val dayOfWeek = date
             .atTime(currentTimeMillis)
             .dayOfWeek
             .getDisplayName(
@@ -82,18 +130,20 @@ class ScheduleRepoImpl @Inject constructor(
         return scheduleDao.isAppRestrictedNowWithActiveSchedule(
             currentTime = currentTimeMillis,
             appPackage = appPackage
-        )?.repeatDays
-            ?.any {
-                it.toString().equals(dayOfWeek, ignoreCase = true)
-            } == true
+        )?.let {
+            it.repeatDays
+                ?.any {
+                    it.toString().equals(dayOfWeek, ignoreCase = true)
+                } == true || it.scheduledDate == date
+        } == true
     }
 
     override suspend fun isScheduleActiveAndRunning(
         scheduleId: Long,
         currentTimeMillis: LocalTime,
     ): Boolean {
-        val dayOfWeek = LocalDate
-            .now()
+        val date = LocalDate.now()
+        val dayOfWeek = date
             .atTime(currentTimeMillis)
             .dayOfWeek
             .getDisplayName(
@@ -103,10 +153,12 @@ class ScheduleRepoImpl @Inject constructor(
         return scheduleDao.getActiveAndRunningSchedule(
             scheduleId = scheduleId,
             currentTime = currentTimeMillis
-        )
-            ?.repeatDays
-            ?.any {
-                it.toString().equals(dayOfWeek, ignoreCase = true)
-            } == true
+        )?.let {
+            it.repeatDays
+                ?.any {
+                    it.toString().equals(dayOfWeek, ignoreCase = true)
+                } == true || it.scheduledDate == date
+
+        } == true
     }
 }

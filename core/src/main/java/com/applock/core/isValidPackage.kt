@@ -6,7 +6,8 @@ fun String.isValidPackage(context: Context): Boolean {
     if (this == context.packageName) return false
     if (this in setOf(
             "com.android.systemui",
-            "com.google.android.googlequicksearchbox"
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.apps.messaging"
         )
     ) {
         return false

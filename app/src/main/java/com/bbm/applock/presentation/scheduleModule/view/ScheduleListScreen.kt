@@ -48,22 +48,27 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
 import coil3.ImageLoader
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.Schedule
 import com.bbm.applock.R
 import com.bbm.applock.presentation.UiState
+import com.bbm.applock.presentation.UiState.Ideal.consumeOnce
 import com.bbm.applock.presentation.scheduleModule.view.component.CreateOrUpdateScheduleBottomSheet
 import com.bbm.applock.presentation.scheduleModule.vm.CreateOrUpdateScheduleVM
 import com.bbm.applock.presentation.scheduleModule.vm.SchedulesScreenVM
 import com.bbm.applock.ui.theme.AppLockTheme
 import com.bbm.applock.ui.theme.TextButtonColor
 import com.bbm.applock.ui.theme.TextPrimaryGradient
+import com.bbm.applock.ui.theme.TextSecondary
+import com.bbm.applock.util.LifeCycleEvent
 import com.bbm.applock.util.MultiDevicePreview
 import com.bbm.applock.util.ScreenSurface
 import com.bbm.applock.util.noRippleClickable
@@ -107,6 +112,11 @@ fun ScheduleScreen(
             newState != SheetValue.Hidden
         }
     )
+    LifeCycleEvent {
+        if (it == Lifecycle.Event.ON_RESUME) {
+            scheduleVM.clear()
+        }
+    }
     LaunchedEffect(Unit) {
         launch {
             vm.errorAlertMsg.collect { message ->
@@ -115,9 +125,22 @@ fun ScheduleScreen(
         }
         launch {
             scheduleVM.state.collect {
-                if (it is UiState.Failure<*>) {
-                    it.consumeOnce()?.message?.let { message ->
-                        snackbarHostState.showSnackbar(message = message)
+                when (it) {
+                    UiState.Ideal -> {}
+                    UiState.Loading -> {}
+                    is UiState.Success<*> -> {}
+                    is UiState.ValidationError -> {
+                        launch {
+                            it.consumeOnce()?.message?.let {
+                                snackbarHostState.showSnackbar(message = context.getString(it))
+                            }
+                        }
+                    }
+
+                    is UiState.Failure<*> -> {
+                        it.consumeOnce()?.message?.let { message ->
+                            snackbarHostState.showSnackbar(message = message)
+                        }
                     }
                 }
             }
@@ -282,24 +305,58 @@ private fun ScheduleScreenContent(
                 .padding(horizontal = horizontalPadding)
         )
         Spacer(Modifier.height(22.dp))
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = horizontalPadding),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(schedules.size) { index ->
-                ScheduleItemRow(
-                    schedule = schedules[index],
-                    onToggleSchedule = {
-                        onToggleSchedule.invoke(schedules[index])
-                    },
-                    onSettingsClick = {
-                        onScheduleSettingsClick.invoke(schedules[index])
-                    },
-                    onScheduleClick = {
-                        onScheduleRowClick.invoke(schedules[index])
-                    },
+        if (schedules.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal = horizontalPadding,
+                        vertical = 12.dp
+                    ),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    stringResource(R.string.no_schedules_yet),
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        brush = TextPrimaryGradient,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.W600
+                    ),
+                    textAlign = TextAlign.Center
                 )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.create_your_first_schedule_to_start_managing_your_app_usage_throughout_the_day),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 18.sp,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.W400
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(20.dp))
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = horizontalPadding),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                items(schedules.size) { index ->
+                    ScheduleItemRow(
+                        schedule = schedules[index],
+                        onToggleSchedule = {
+                            onToggleSchedule.invoke(schedules[index])
+                        },
+                        onSettingsClick = {
+                            onScheduleSettingsClick.invoke(schedules[index])
+                        },
+                        onScheduleClick = {
+                            onScheduleRowClick.invoke(schedules[index])
+                        },
+                    )
+                }
             }
         }
     }
@@ -444,7 +501,7 @@ fun ScheduleItemRow(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    schedule.repeatDaysFormat,
+                    schedule.onWhichDay,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W400

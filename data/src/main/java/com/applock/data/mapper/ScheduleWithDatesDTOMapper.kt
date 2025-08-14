@@ -21,13 +21,15 @@ fun ScheduleWithApps.toDomain() = Schedule(
     endTime = schedule.endTime,
     isActive = schedule.isActive,
     repeatDays = schedule.repeatDays,
+    isOneTime = schedule.isOneTime,
     apps = apps.map { app ->
         Schedule.App(
             id = app.id,
             appId = app.appId,
             appName = app.appName
         )
-    }
+    },
+    date = schedule.scheduledDate
 )
 
 fun Schedule.toEntity() = ScheduleEntity(

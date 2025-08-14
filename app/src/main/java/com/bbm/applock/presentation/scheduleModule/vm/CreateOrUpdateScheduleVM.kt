@@ -9,10 +9,10 @@ import com.applock.domain.model.Schedule
 import com.applock.domain.usecase.CreateScheduleUseCase
 import com.applock.domain.usecase.DeleteScheduleUseCase
 import com.applock.domain.usecase.GetControlledAppsUseCase
-import com.applock.domain.usecase.GetScheduleUseCase
 import com.applock.domain.usecase.HasActiveTimeSlotsNow
 import com.applock.domain.usecase.ToggleScheduleActiveStatusUseCase
 import com.applock.domain.usecase.UpdateScheduleUseCase
+import com.bbm.applock.R
 import com.bbm.applock.dispatcher.CoroutineDispatcherProvider
 import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.base.BaseVM
@@ -31,7 +31,6 @@ class CreateOrUpdateScheduleVM @Inject constructor(
     private val dispatcher: CoroutineDispatcherProvider,
     private val getControlledAppsUseCase: GetControlledAppsUseCase,
     private val createScheduleUseCase: CreateScheduleUseCase,
-    private val getSchedule: GetScheduleUseCase,
     private val updateScheduleUseCase: UpdateScheduleUseCase,
     private val deleteScheduleUseCase: DeleteScheduleUseCase,
     private val hasActiveTimeSlotsNow: HasActiveTimeSlotsNow,
@@ -44,6 +43,10 @@ class CreateOrUpdateScheduleVM @Inject constructor(
     data object DeleteSuccess
 
     init {
+        refresh()
+    }
+
+    fun refresh() {
         viewModelScope.launch(dispatcher.io) {
             val apps = getControlledAppsUseCase.invoke()
             _controlledApps.value = apps
@@ -98,13 +101,28 @@ class CreateOrUpdateScheduleVM @Inject constructor(
         _isCreateScheduleDialogVisible.value = !_isCreateScheduleDialogVisible.value
     }
 
-    fun createSchedule() {
-        if (!validate()) return
-        val selectedApps = _selectedControlledApps.value
-        val selectedDays = _selectedDays.value
-        val selectedTImeSlot = _selectedTimeSlot.value
-        val scheduleName = _scheduleName.value
+    fun toggleUpdateScheduleDialog(schedule: Schedule) {
         viewModelScope.launch(dispatcher.io) {
+            if (hasActiveTimeSlotsNow.invoke(
+                    schedule.id,
+                    LocalDate.now(),
+                    LocalTime.now()
+                )
+            ) {
+                _state.emit(UiState.Failure(null, "Can not update active schedule!"))
+                return@launch
+            }
+            _isCreateScheduleDialogVisible.value = !_isCreateScheduleDialogVisible.value
+        }
+    }
+
+    fun createSchedule() {
+        viewModelScope.launch(dispatcher.io) {
+            if (!validate()) return@launch
+            val selectedApps = _selectedControlledApps.value
+            val selectedDays = _selectedDays.value
+            val selectedTImeSlot = _selectedTimeSlot.value
+            val scheduleName = _scheduleName.value
             createScheduleUseCase.invoke(
                 Schedule(
                     name = scheduleName,
@@ -147,12 +165,12 @@ class CreateOrUpdateScheduleVM @Inject constructor(
     }
 
     fun updateSchedule(schedule: Schedule) {
-        if (!validate()) return
-        val selectedApps = _selectedControlledApps.value
-        val selectedDays = _selectedDays.value
-        val selectedTImeSlot = _selectedTimeSlot.value
-        val scheduleName = _scheduleName.value
         viewModelScope.launch(dispatcher.io) {
+            if (!validate()) return@launch
+            val selectedApps = _selectedControlledApps.value
+            val selectedDays = _selectedDays.value
+            val selectedTImeSlot = _selectedTimeSlot.value
+            val scheduleName = _scheduleName.value
             if (hasActiveTimeSlotsNow.invoke(
                     scheduleId = schedule.id,
                     date = LocalDate.now(),
@@ -248,15 +266,25 @@ class CreateOrUpdateScheduleVM @Inject constructor(
         }
     }
 
-    private fun validate(): Boolean {
-        if (_scheduleName.value.isEmpty() || _scheduleName.value.length < 3) return false
-        if (_selectedDays.value.isEmpty()) return false
-        if (_selectedControlledApps.value.isEmpty()) return false
-
+    private suspend fun validate(): Boolean {
+        if (_scheduleName.value.isEmpty() || _scheduleName.value.length < 3) {
+            _state.emit(UiState.ValidationError(R.string.schedule_name_must_be_at_least_3_characters))
+            return false
+        }
+        val (startTime, endTime) = _selectedTimeSlot.value
+        if (startTime == endTime) {
+            _state.emit(UiState.ValidationError(R.string.start_time_must_be_before_end_time))
+            return false
+        }
+        if (_selectedControlledApps.value.isEmpty()) {
+            _state.emit(UiState.ValidationError(R.string.select_at_least_one_app))
+            return false
+        }
         return true
     }
 
     fun clear() {
+        refresh()
         _selectedTimeSlot.value = LocalTime.now() to LocalTime.now().plusHours(1)
         _selectedControlledApps.value = LinkedHashSet()
         _selectedDays.value = LinkedHashSet()

@@ -20,6 +20,9 @@ interface ScheduleDao {
     @Insert
     suspend fun insertApps(apps: List<AppEntity>)
 
+    @Query("SELECT * FROM schedules WHERE id = :id")
+    suspend fun getScheduleById(id: Long): ScheduleEntity?
+
     // READ
     @Transaction
     @Query("SELECT * FROM schedules")
@@ -27,7 +30,7 @@ interface ScheduleDao {
 
     @Transaction
     @Query("SELECT * FROM schedules WHERE id = :id")
-    fun getScheduleById(id: Long): Flow<ScheduleWithApps?>
+    fun getScheduleWithAppsById(id: Long): Flow<ScheduleWithApps?>
 
     // UPDATE
     @Update
@@ -99,11 +102,19 @@ interface ScheduleDao {
     @Query(
         """
         SELECT EXISTS(
-            SELECT 1 FROM schedules
-            WHERE name = :scheduleName
+        SELECT 1 FROM schedules
+        WHERE id != :scheduleId
+          AND (
+                name = :scheduleName
                 OR (startTime = :startTime AND endTime = :endTime)
-        )
+              )
+          )
         """
     )
-    fun isScheduleExists(scheduleName: String, startTime: LocalTime, endTime: LocalTime): Boolean
+    fun isScheduleExists(
+        scheduleId: Long,
+        scheduleName: String,
+        startTime: LocalTime,
+        endTime: LocalTime
+    ): Boolean
 }
