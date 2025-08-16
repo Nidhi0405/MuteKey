@@ -11,6 +11,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.view.AnalyticsScreen
+import com.bbm.applock.presentation.analyticsModule.view.LastSevenScreen
+import com.bbm.applock.presentation.analyticsModule.view.ThisWeekScreen
+import com.bbm.applock.presentation.analyticsModule.view.TodaysScreen
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
 import com.bbm.applock.presentation.installedControlledAppsModule.view.InstalledAppListScreen
 import com.bbm.applock.presentation.installedControlledAppsModule.vm.InstalledAppVM
@@ -65,9 +68,35 @@ private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
     }
 
     composable<MainScreens.AnalyticsScreenRoute> {
-        ScreenSurface(modifier = Modifier.fillMaxSize()) {
-            val vm = hiltViewModel<AnalyticsVm>()
-            AnalyticsScreen(vm)
+        ScreenSurface(Modifier.fillMaxSize()) {
+            AnalyticsScreen(
+                onOpenToday = { navController.navigate(MainScreens.AnalyticsTodayRoute) },
+                onOpenLastSeven = { navController.navigate(MainScreens.AnalyticsLastSevenRoute) },
+                onOpenThisWeek = { navController.navigate(MainScreens.AnalyticsThisWeekRoute) }
+            )
+        }
+    }
+
+    // --- Analytics child screens (plug YOUR composables) ---
+    composable<MainScreens.AnalyticsTodayRoute> {
+        // Example: you already have a Journey composable for today's hourly/radar
+        val vm = hiltViewModel<AnalyticsVm>()
+        ScreenSurface(Modifier.fillMaxSize()) {
+            TodaysScreen(vm)
+        }
+    }
+
+    composable<MainScreens.AnalyticsLastSevenRoute> {
+        val vm = hiltViewModel<AnalyticsVm>()
+        ScreenSurface(Modifier.fillMaxSize()) {
+            LastSevenScreen(vm)
+        }
+    }
+
+    composable<MainScreens.AnalyticsThisWeekRoute> {
+        val vm = hiltViewModel<AnalyticsVm>()
+        ScreenSurface(Modifier.fillMaxSize()) {
+            ThisWeekScreen(vm)
         }
     }
 

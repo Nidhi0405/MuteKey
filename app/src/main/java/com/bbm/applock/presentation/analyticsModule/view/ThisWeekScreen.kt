@@ -68,7 +68,7 @@ import java.util.Calendar
 import androidx.compose.ui.graphics.Color as ComposeColor
 
 @Composable
-fun UsageTabContent(
+fun ThisWeekScreen(
     vm: AnalyticsVm,
     modifier: Modifier = Modifier
 ) {

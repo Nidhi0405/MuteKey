@@ -22,4 +22,9 @@ object MainScreens {
 
     @Serializable
     data class ScheduleDetailScreenRoute(val scheduleId: Long = 0)
+
+    @Serializable data object AnalyticsTodayRoute
+    @Serializable data object AnalyticsLastSevenRoute
+    @Serializable data object AnalyticsThisWeekRoute
+
 }
