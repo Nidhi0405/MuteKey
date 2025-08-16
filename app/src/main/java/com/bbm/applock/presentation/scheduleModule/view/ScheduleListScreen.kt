@@ -280,7 +280,7 @@ private fun ScheduleScreenContent(
             sheetState = sheetState,
         )
     }
-    if (isScheduleSettingsDialogVisible && selectedScheduleForSetting != null) {
+   /* if (isScheduleSettingsDialogVisible && selectedScheduleForSetting != null) {
         ScheduleSettingsDialog(
             schedule = selectedScheduleForSetting,
             onDeleteClick = {
@@ -291,7 +291,7 @@ private fun ScheduleScreenContent(
             },
             onDismiss = onScheduleSettingsDismissClick
         )
-    }
+    }*/
     val horizontalPadding = 16.dp
     Column(
         modifier = modifier

@@ -108,8 +108,7 @@ fun CreateOrUpdateScheduleBottomSheet(
         sheetState = sheetState,
         onDismissRequest = {
             // only dismiss when updating else will be from [Cancel] click
-            if (schedule != null)
-                onDismiss.invoke()
+            onDismiss.invoke()
         },
     ) {
         Column(

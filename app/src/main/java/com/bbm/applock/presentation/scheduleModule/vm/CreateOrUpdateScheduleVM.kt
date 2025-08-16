@@ -99,6 +99,7 @@ class CreateOrUpdateScheduleVM @Inject constructor(
 
     fun toggleCreateScheduleDialog() {
         _isCreateScheduleDialogVisible.value = !_isCreateScheduleDialogVisible.value
+        clear()
     }
 
     fun toggleUpdateScheduleDialog(schedule: Schedule) {
