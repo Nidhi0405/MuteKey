@@ -2,8 +2,8 @@ package com.bbm.applock.presentation.analyticsModule.view
 
 import android.content.Context
 import android.graphics.Color
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,17 +32,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.graphics.drawable.toBitmap
+import coil3.compose.AsyncImage
+import com.applock.domain.model.AppUsageInfo
 import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
 import com.bbm.applock.ui.theme.AquaBlue
-import com.bbm.applock.ui.theme.WhiteColor
+import com.bbm.applock.ui.theme.TextPrimary
+import com.bbm.applock.ui.theme.TextPrimaryGradient
+import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.util.IconLineChartRenderer
 import com.bbm.applock.util.getAppIconDrawable
 import com.bbm.applock.util.getAppNameFromPackage
@@ -55,122 +59,247 @@ import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import com.github.mikephil.charting.utils.MPPointF
-import java.util.concurrent.TimeUnit
+@Composable
+fun AnalyticsHeader(
+    onBackPress: () -> Unit,
+    modifier: Modifier = Modifier,
+    @StringRes headerTitle : Int
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(45.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_back_colored),
+            contentDescription = "Back",
+            modifier = Modifier
+                .size(24.dp)
+                .noRippleClickable(onBackPress)
+        )
+
+        Spacer(Modifier.width(12.dp))
+
+        Text(
+            text = stringResource(headerTitle), // <-- new title
+            style = MaterialTheme.typography.titleMedium.copy(
+                brush = TextPrimaryGradient,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.W700
+            ),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
 
 @Composable
-fun LastSevenScreen(
-    vm: AnalyticsVm
-) {
+fun LastSevenScreen(vm: AnalyticsVm,onBackPress: () -> Unit) {
+    LaunchedEffect(Unit) { vm.syncAndGetInstalledApps(7) }
+
     val parsedChartData by vm.parsedChartData.collectAsState()
-    val combinedHourlyUsage by vm.combinedHourlyUsage.collectAsState()
-    var labels = parsedChartData.first
-    var series = parsedChartData.second
-    var hourlyData = combinedHourlyUsage
-    var selectedApp by remember {
-        mutableStateOf<String?>(null)
-    }
-    val rSeries = remember(series) {
-        mutableStateOf(series)
-    }
+    val labels = parsedChartData.first
+    val series = parsedChartData.second
+
+    var selectedApp by remember { mutableStateOf<String?>(null) }
+    val rSeries = remember(series) { mutableStateOf(series) }
+    AnalyticsHeader(onBackPress = onBackPress, headerTitle = R.string.last_7_days)
+    Spacer(Modifier.height(8.dp))
     Column(
         modifier = Modifier
+            .padding(top = 16.dp)
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
+
         Spacer(Modifier.height(8.dp))
-        HourlyUsageBarChart(
-            hourlyData = hourlyData,
+
+        if (labels.isNotEmpty() && rSeries.value.isNotEmpty()) {
+            CurvedLineChartView(
+                labels = labels,
+                series = rSeries.value,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "No journey data available.",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = 14.sp,
+                        color = TextSecondary
+                    )
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        WeeklyTopAppsInteractive(
+            vm = vm,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(WhiteColor)
-                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .padding(horizontal = 20.dp),
+            selectedApp = selectedApp,
+            onAppTapped = { pkg ->
+                if (selectedApp == pkg) {
+                    selectedApp = null
+                    rSeries.value = series
+                } else {
+                    selectedApp = pkg
+                    rSeries.value = series.filter { it.first == pkg }
+                }
+            }
         )
-        Spacer(Modifier.height(8.dp))
-        Column(
+
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun WeeklyTopAppsInteractive(
+    vm: AnalyticsVm,
+    modifier: Modifier = Modifier,
+    selectedApp: String?,
+    onAppTapped: (String) -> Unit
+) {
+    val weeklyTopApps by vm.topAppsForUsageTab.collectAsState()
+
+    Column(modifier = modifier) {
+        Row(
             modifier = Modifier
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.Bottom
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (labels.isNotEmpty() && series.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.last_7_days_top_5_app_engagement),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 20.dp)
+            Text(
+                text = "hour/week",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 14.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.W400,
+                    color = TextPrimary
+                )
+            )
+        }
+
+        val items = weeklyTopApps.take(5)
+        if (items.isEmpty()) {
+            Text(
+                "No weekly usage data.",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+            )
+        } else {
+            items.forEach { app ->
+                AppUsageItem(
+                    app = app,
+                    isSelected = (selectedApp == app.packageName),
+                    onClick = { onAppTapped(app.packageName) }
                 )
                 Spacer(Modifier.height(8.dp))
-                CurvedLineChartView(
-                    labels = labels,
-                    series = rSeries.value,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                ChartLegendRow(
-                    selectedApp = selectedApp,
-                    apps = series.map { it.first },
-                    onAppClick = { pkg ->
-                        if (selectedApp == pkg) {
-                            selectedApp = null
-                            rSeries.value = series
-                        } else {
-                            selectedApp = pkg
-                            rSeries.value = series.filter { it.first == pkg }
-                        }
-                    }
-                )
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No journey data available.", color = ComposeColor.DarkGray)
-                }
             }
         }
     }
 }
 
 @Composable
-fun ChartLegendRow(
-    selectedApp: String?,
-    apps: List<String>,
-    onAppClick: (String) -> Unit = {},
+fun WeeklyUsageList(
+    vm: AnalyticsVm,
+    modifier: Modifier = Modifier
+) {
+    val weeklyTopApps by vm.topAppsForUsageTab.collectAsState()
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "hour/week",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 14.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.W400,
+                    color = TextPrimary
+                )
+            )
+        }
+
+        val items = weeklyTopApps.take(5)
+        if (items.isEmpty()) {
+            Text(
+                "No weekly usage data.",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+            )
+        } else {
+            items.forEach { app ->
+                AppUsageItem(app = app)
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun AppUsageItem(
+    app: AppUsageInfo,
+    isSelected: Boolean = false,
+    onClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+            .clip(RoundedCornerShape(12.dp))
+            .then(
+                if (onClick != null) Modifier.noRippleClickable { onClick() } else Modifier
+            )
+            .then(
+                if (isSelected) Modifier.border(1.dp, AquaBlue, RoundedCornerShape(12.dp))
+                else Modifier
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        apps.forEach { pkg ->
-            val icon = remember(pkg) { getAppIconDrawable(context, pkg) }
-            val isSelected = selectedApp == pkg
-            val label = getAppNameFromPackage(context, pkg)
-            Column(
-                modifier = Modifier.noRippleClickable { onAppClick(pkg) },
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                icon?.let {
-                    Image(
-                        bitmap = it.toBitmap().asImageBitmap(),
-                        contentDescription = label,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .then(
-                                if (isSelected) {
-                                    Modifier
-                                        .border(2.dp, color = AquaBlue, shape = CircleShape)
-                                        .padding(4.dp)
-                                } else {
-                                    Modifier
-                                }
-                            )
-                    )
-                }
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = getAppIconDrawable(context = context, packageName = app.packageName),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = app.name,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 14.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.W500
                 )
-            }
+            )
         }
+        Text(
+            text = "%.2f h".format(app.usageTimeInMillis / 1000f / 60f / 60f),
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontSize = 14.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.W500,
+                color = TextPrimary
+            )
+        )
     }
 }
 
@@ -197,7 +326,6 @@ fun CurvedLineChartView(
             .height(350.dp)
     )
 }
-
 fun setupLineChart(
     chart: LineChart,
     labels: List<String>,
@@ -245,7 +373,7 @@ fun setupLineChart(
     if (dataSets.isNotEmpty()) {
         chart.data = LineData(dataSets)
     } else {
-        chart.data = null // Clear data if no datasets
+        chart.data = null
     }
 
     chart.description.isEnabled = false
@@ -267,101 +395,11 @@ fun setupLineChart(
     chart.isDoubleTapToZoomEnabled = false
     chart.isDragEnabled = false
     chart.isHighlightPerTapEnabled = false
-    chart.invalidate() // Refresh chart
+    chart.invalidate()
 }
-
 fun generateColor(index: Int): Int {
     val hue = (index * 47f) % 360f
     return Color.HSVToColor(180, floatArrayOf(hue, 0.8f, 0.95f))
 }
 
-@Composable
-fun HourlyUsageBarChart(
-    hourlyData: List<Long>,
-    modifier: Modifier = Modifier
-) {
-    val maxUsage = (60 * 60 * 1000L).toFloat()
-    val barWidth = 12.dp
 
-    Column(
-        modifier = modifier.wrapContentSize()
-    ) {
-        Text(
-            text = stringResource(R.string.today_s_hourly_usage),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // Y-Axis Labels Column
-            Column(
-                modifier = Modifier
-                    .padding(end = 4.dp)
-                    .height(180.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End
-            ) {
-                val ySteps = 4 // Number of labels on Y-axis
-                for (i in ySteps downTo 0) {
-                    val label = ((maxUsage * i) / ySteps).toLong().let {
-                        "${TimeUnit.MILLISECONDS.toMinutes(it)} min"
-                    }
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ComposeColor.DarkGray,
-                        modifier = Modifier.height(180.dp / (ySteps))
-                    )
-                }
-            }
-            // Bar Chart Column
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                ) {
-                    hourlyData.forEachIndexed { hour, millis ->
-                        val heightRatio =
-                            (millis / maxUsage).coerceIn(0f, 1f)
-                        val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .height((heightRatio * 150).dp.coerceAtLeast(4.dp))
-                                    .width(barWidth)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                    .background(AquaBlue)
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = "$hour",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = ComposeColor.DarkGray
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Each bar = time spent between that hour (in minutes)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-    }
-}

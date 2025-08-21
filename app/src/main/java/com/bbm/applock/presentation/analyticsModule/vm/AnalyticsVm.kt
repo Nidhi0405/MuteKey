@@ -10,6 +10,9 @@ import com.applock.domain.usecase.SyncInstalledAppsUseCase
 import com.bbm.applock.dispatcher.CoroutineDispatcherProvider
 import com.bbm.applock.presentation.UiState
 import com.bbm.applock.presentation.base.BaseVM
+import com.bbm.applock.util.Constants
+import com.bbm.applock.util.Constants.SELF_PKG
+import dagger.hilt.android.internal.Contexts.getApplication
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,9 +21,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -92,6 +99,14 @@ class AnalyticsVm @Inject constructor(
         }
         .flowOn(dispatchers.default) // Summation on default dispatcher
         .stateIn(viewModelScope, SharingStarted.Lazily, List(24) { 0L }) // Convert to StateFlow
+
+    private val dailyCache =
+        MutableStateFlow<Map<java.time.LocalDate, Map<String, Long>>>(emptyMap())
+
+    // at top-level fields
+    private val _isCacheReady = MutableStateFlow(false)
+    val isCacheReady: StateFlow<Boolean> = _isCacheReady
+
 
     init {
         viewModelScope.launch {
@@ -211,4 +226,117 @@ class AnalyticsVm @Inject constructor(
             .take(5)
         return labels to top5
     }
+
+    // replace your primeDailyCache with this version (adds onReady + ready flag + logs)
+    fun primeDailyCache(days: Int = 16, onReady: (() -> Unit)? = null) {
+        viewModelScope.launch(dispatchers.io) {
+            _isCacheReady.value = false
+            try {
+                val perAppSeries = getDailyAppUsageForChartUseCase.invoke(days) // pkg → List<Long> (oldest..newest)
+                val zone = java.time.ZoneId.systemDefault()
+                val today = java.time.LocalDate.now(zone)
+
+                // Oldest..newest dates (today - (days-1) .. today)
+                val dates = (0 until days).map { i -> today.minusDays((days - 1 - i).toLong()) }
+                val dateMap = mutableMapOf<java.time.LocalDate, MutableMap<String, Long>>()
+                dates.forEach { d -> dateMap[d] = mutableMapOf() }
+                perAppSeries.forEach { (pkg, series) ->
+                    android.util.Log.d("AnalyticsVm", "Raw [$pkg]: ${series.joinToString()}")
+                }
+                // repo returns exactly 'days' buckets per pkg in oldest..newest order
+                perAppSeries.forEach { (pkg, raw) ->
+                    val aligned = raw.takeLast(days)
+                    dates.forEachIndexed { idx, d ->
+                        val ms = aligned[idx]
+                        if (ms > 0L) {
+                            dateMap[d]!![pkg] = (dateMap[d]!![pkg] ?: 0L) + ms
+                        }
+                    }
+                }
+
+                // logs
+                android.util.Log.d("AnalyticsVm", "primeDailyCache: cached=${dateMap.size} (oldest..newest)")
+                dateMap.keys.sorted().forEach { d ->
+                    val totalMs = dateMap[d]!!.values.sum()
+                    android.util.Log.d("AnalyticsVm", "  $d total=${formatH(totalMs)}")
+                }
+
+                dailyCache.value = dateMap
+                _isCacheReady.value = true
+                onReady?.let { withContext(dispatchers.main) { it() } }
+            } catch (e: Exception) {
+                android.util.Log.e("AnalyticsVm", "primeDailyCache error: ${e.message}", e)
+                dailyCache.value = emptyMap()
+                _isCacheReady.value = false
+            }
+        }
+    }
+
+    private fun formatH(ms: Long): String {
+        val h = java.util.concurrent.TimeUnit.MILLISECONDS.toHours(ms)
+        val m = java.util.concurrent.TimeUnit.MILLISECONDS.toMinutes(ms) % 60
+        return "${h}h ${m}m"
+    }
+    fun showDay(date: java.time.LocalDate) {
+        viewModelScope.launch(dispatchers.default) {
+            if (!_isCacheReady.value) {
+                android.util.Log.w("AnalyticsVm", "showDay called before cache ready")
+                return@launch
+            }
+            val bucket = dailyCache.value[date].orEmpty()
+            val list = bucket.entries
+                .map { (pkg, ms) -> AppUsageInfo(pkg, pkg, ms, false) }
+                .filter { it.usageTimeInMillis > 0L }
+                .sortedByDescending { it.usageTimeInMillis }
+
+            android.util.Log.d("AnalyticsVm", "showDay($date): pkgs=${bucket.size}, total=${formatH(bucket.values.sum())}")
+            _installedApps.value = list
+            _hourlyUsageRawMap.value = emptyMap()
+        }
+    }
+
+    fun showWeekChunk(weekOffset: Int) {
+        viewModelScope.launch(dispatchers.default) {
+            if (!_isCacheReady.value) {
+                android.util.Log.w("AnalyticsVm", "showWeekChunk called before cache ready")
+                return@launch
+            }
+            val datesSorted = dailyCache.value.keys.sorted() // oldest..newest
+            if (datesSorted.isEmpty()) {
+                _installedApps.value = emptyList()
+                return@launch
+            }
+
+            val today = java.time.LocalDate.now()
+            val idxToday = datesSorted.indexOf(today).takeIf { it >= 0 } ?: datesSorted.lastIndex
+
+            // current week: [idxToday-6..idxToday], previous: shift by 7
+            val end = (idxToday - (7 * weekOffset)).coerceAtMost(datesSorted.lastIndex)
+            val start = (end - 6).coerceAtLeast(0)
+
+            android.util.Log.d(
+                "AnalyticsVm",
+                "showWeekChunk($weekOffset): ${datesSorted[start]}..${datesSorted[end]} idx=[$start..$end] todayIdx=$idxToday"
+            )
+
+            val sumPerPkg = mutableMapOf<String, Long>()
+            for (i in start..end) {
+                val d = datesSorted[i]
+                dailyCache.value[d].orEmpty().forEach { (pkg, ms) ->
+                    sumPerPkg[pkg] = (sumPerPkg[pkg] ?: 0L) + ms
+                }
+            }
+            android.util.Log.d("AnalyticsVm", "showWeekChunk($weekOffset): total=${formatH(sumPerPkg.values.sum())}")
+
+            val list = sumPerPkg.entries
+                .map { (pkg, ms) -> AppUsageInfo(pkg, pkg, ms, false) }
+                .filter { it.usageTimeInMillis > 0L }
+                .sortedByDescending { it.usageTimeInMillis }
+
+            _installedApps.value = list
+            _hourlyUsageRawMap.value = emptyMap()
+        }
+    }
+
+
 }
