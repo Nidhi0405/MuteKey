@@ -13,6 +13,8 @@ import com.applock.domain.model.TotalScreenTime
 import com.applock.domain.repo.SystemAppRepo
 import java.sql.Date
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -90,14 +92,15 @@ class SystemAppRepoImpl @Inject constructor(
     }
 
     override suspend fun getInstalledAppsWithUsagesInMap(days: Int): Map<String, List<Long>> {
-        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val usm = context.getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
         val pm = context.packageManager
-        val zone = java.time.ZoneId.systemDefault()
-        val today = java.time.LocalDate.now(zone)
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
         val oldest = today.minusDays((days - 1).toLong())
 
         // Build date axis oldest..newest
-        val dates: List<java.time.LocalDate> = (0 until days).map { i -> oldest.plusDays(i.toLong()) }
+        val dates: List<LocalDate> =
+            (0 until days).map { i -> oldest.plusDays(i.toLong()) }
 
         // Only launchable, valid packages (and exclude our own)
         val selfPkg = context.packageName
@@ -122,7 +125,8 @@ class SystemAppRepoImpl @Inject constructor(
             val end = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
 
             // Ask the system JUST for this civil day
-            val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end) ?: emptyList()
+            val stats =
+                usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end) ?: emptyList()
 
             // Sum per package for the day
             stats.forEach { s ->
@@ -207,13 +211,17 @@ class SystemAppRepoImpl @Inject constructor(
                 arr.addSpan(s, endTime, i)
             }
 
-            Log.d("USAGE_STATS_DAY", "📅 Date: ${dateFormat.format(Date(startTime))} | Total Events: $totalEvents | Useful: $usefulEvents")
+            Log.d(
+                "USAGE_STATS_DAY",
+                "📅 Date: ${dateFormat.format(Date(startTime))} | Total Events: $totalEvents | Useful: $usefulEvents"
+            )
         }
 
         return buckets.mapValues { (_, arr) ->
             arr.map { it.coerceAtMost(3_600_000L) }
         }
     }
+
     private fun LongArray.addSpan(start: Long, end: Long, dayOffset: Int) {
         val split = splitAcrossHours(start, end)
         for (h in 0 until 24) {
@@ -221,10 +229,6 @@ class SystemAppRepoImpl @Inject constructor(
             if (index in indices) this[index] += split[h]
         }
     }
-
-
-
-
 
 
     /** Break a [start-end] interval into millis per civil hour. */

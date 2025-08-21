@@ -42,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -51,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import coil3.ImageLoader
 import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
 import com.applock.domain.model.PermissionInfo
@@ -131,12 +131,7 @@ fun InstalledAppListScreen(vm: InstalledAppVM) {
         },
         onSortClick = vm::sortAppList,
         appList = appList.value,
-        painter = {
-            rememberAsyncImagePainter(
-                model = AppIcon(it.packageName),
-                imageLoader = imageLoader
-            )
-        },
+        imageLoader = imageLoader,
         onAddOrRemoveControlledApp = {
             vm.onAddOrRemoveControlledApp(it)
         },
@@ -200,7 +195,7 @@ private fun InstalledAppListScreenContent(
     onTextChange: (String) -> Unit,
     onSortClick: (InstalledAppVM.SortType) -> Unit,
     appList: List<AppUsageInfo>,
-    painter: @Composable (AppUsageInfo) -> Painter,
+    imageLoader: ImageLoader,
     onAddOrRemoveControlledApp: (AppUsageInfo) -> Unit,
     permission: PermissionInfo?,
     listState: LazyListState = rememberLazyListState(),
@@ -290,10 +285,10 @@ private fun InstalledAppListScreenContent(
                     items(appList.size, key = { appList[it].packageName }) {
                         AppUsageRow(
                             appList[it],
-                            painter.invoke(appList[it]),
                             onAddToControlledApp = {
                                 onAddOrRemoveControlledApp(appList[it])
                             },
+                            imageLoader = imageLoader,
                             modifier = Modifier
                         )
                     }
@@ -393,9 +388,9 @@ private fun PermissionRowPreview() {
 @Composable
 fun AppUsageRow(
     info: AppUsageInfo,
-    appIcon: Painter,
     onAddToControlledApp: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    imageLoader: ImageLoader
 ) {
     Row(
         modifier = modifier
@@ -414,7 +409,10 @@ fun AppUsageRow(
         Spacer(Modifier.width(8.dp))
 
         Image(
-            painter = appIcon,
+            painter = rememberAsyncImagePainter(
+                model = AppIcon(info.packageName),
+                imageLoader = imageLoader
+            ),
             contentDescription = info.name,
             modifier = Modifier
                 .size(48.dp)
@@ -476,9 +474,9 @@ private fun AppUsageRowPreview() {
                     usageTimeInMillis = 22,
                     isControlledApp = false
                 ),
-                appIcon = painterResource(R.drawable.ic_launcher_background),
                 onAddToControlledApp = {},
-                modifier = Modifier.padding(12.dp)
+                modifier = Modifier.padding(12.dp),
+                imageLoader = ImageLoader.Builder(LocalContext.current).build()
             )
             AppUsageRow(
                 AppUsageInfo(
@@ -487,7 +485,7 @@ private fun AppUsageRowPreview() {
                     usageTimeInMillis = 22,
                     isControlledApp = true
                 ),
-                appIcon = painterResource(R.drawable.ic_launcher_background),
+                imageLoader = ImageLoader.Builder(LocalContext.current).build(),
                 onAddToControlledApp = {},
                 modifier = Modifier.padding(12.dp)
             )
@@ -527,7 +525,6 @@ private fun InstalledAppListScreenPreview() {
                         isControlledApp = false
                     )
                 ),
-                painter = { painterResource(R.drawable.ic_launcher_background) },
                 onAddOrRemoveControlledApp = {},
                 permission = PermissionInfo(
                     permissions = listOf(
@@ -556,6 +553,7 @@ private fun InstalledAppListScreenPreview() {
                 onClickPermission = {},
                 listState = rememberLazyListState(),
                 modifier = Modifier.fillMaxSize(),
+                imageLoader = ImageLoader.Builder(LocalContext.current).build()
             )
         }
     }

@@ -212,7 +212,6 @@ fun ScheduleScreen(
         startTime = startTime,
         endTime = endTime,
         onCreateScheduleClick = onCreateScheduleClick,
-
         modifier = Modifier
             .fillMaxSize()
             .imePadding()

@@ -4,22 +4,24 @@ import android.content.Context
 import android.graphics.Color
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,14 +41,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import coil3.compose.AsyncImage
+import coil3.ImageLoader
+import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
+import com.applock.domain.util.toReadableDuration
 import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.TextPrimaryGradient
 import com.bbm.applock.ui.theme.TextSecondary
+import com.bbm.applock.util.AppIcon
 import com.bbm.applock.util.IconLineChartRenderer
 import com.bbm.applock.util.getAppIconDrawable
 import com.bbm.applock.util.getAppNameFromPackage
@@ -59,17 +64,18 @@ import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import com.github.mikephil.charting.utils.MPPointF
+import androidx.compose.ui.graphics.Color as ComposeColor
+
 @Composable
 fun AnalyticsHeader(
     onBackPress: () -> Unit,
     modifier: Modifier = Modifier,
-    @StringRes headerTitle : Int
+    @StringRes headerTitle: Int
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(45.dp)
-            .padding(horizontal = 16.dp),
+            .height(45.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
@@ -95,7 +101,7 @@ fun AnalyticsHeader(
 }
 
 @Composable
-fun LastSevenScreen(vm: AnalyticsVm,onBackPress: () -> Unit) {
+fun LastSevenScreen(vm: AnalyticsVm, onBackPress: () -> Unit) {
     LaunchedEffect(Unit) { vm.syncAndGetInstalledApps(7) }
 
     val parsedChartData by vm.parsedChartData.collectAsState()
@@ -104,22 +110,27 @@ fun LastSevenScreen(vm: AnalyticsVm,onBackPress: () -> Unit) {
 
     var selectedApp by remember { mutableStateOf<String?>(null) }
     val rSeries = remember(series) { mutableStateOf(series) }
-    AnalyticsHeader(onBackPress = onBackPress, headerTitle = R.string.last_7_days)
-    Spacer(Modifier.height(8.dp))
+
     Column(
         modifier = Modifier
-            .padding(top = 16.dp)
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .imePadding()
     ) {
+        AnalyticsHeader(
+            onBackPress = onBackPress,
+            headerTitle = R.string.last_7_days,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(22.dp))
 
         if (labels.isNotEmpty() && rSeries.value.isNotEmpty()) {
             CurvedLineChartView(
                 labels = labels,
                 series = rSeries.value,
-                modifier = Modifier.padding(horizontal = 20.dp)
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         } else {
             Box(
@@ -129,7 +140,7 @@ fun LastSevenScreen(vm: AnalyticsVm,onBackPress: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "No journey data available.",
+                    "No data available.",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontSize = 14.sp,
                         color = TextSecondary
@@ -142,9 +153,7 @@ fun LastSevenScreen(vm: AnalyticsVm,onBackPress: () -> Unit) {
 
         WeeklyTopAppsInteractive(
             vm = vm,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth(),
             selectedApp = selectedApp,
             onAppTapped = { pkg ->
                 if (selectedApp == pkg) {
@@ -169,27 +178,10 @@ fun WeeklyTopAppsInteractive(
     onAppTapped: (String) -> Unit
 ) {
     val weeklyTopApps by vm.topAppsForUsageTab.collectAsState()
-
     Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 6.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "hour/week",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 14.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.W400,
-                    color = TextPrimary
-                )
-            )
-        }
-
         val items = weeklyTopApps.take(5)
         if (items.isEmpty()) {
+            Spacer(Modifier.height(12.dp))
             Text(
                 "No weekly usage data.",
                 style = MaterialTheme.typography.labelMedium.copy(
@@ -197,57 +189,40 @@ fun WeeklyTopAppsInteractive(
                     color = TextSecondary
                 )
             )
+            Spacer(Modifier.height(12.dp))
         } else {
-            items.forEach { app ->
-                AppUsageItem(
-                    app = app,
-                    isSelected = (selectedApp == app.packageName),
-                    onClick = { onAppTapped(app.packageName) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "hour/week",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W400,
+                        color = TextPrimary
+                    ),
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
-                Spacer(Modifier.height(8.dp))
             }
-        }
-    }
-}
 
-@Composable
-fun WeeklyUsageList(
-    vm: AnalyticsVm,
-    modifier: Modifier = Modifier
-) {
-    val weeklyTopApps by vm.topAppsForUsageTab.collectAsState()
+            Spacer(Modifier.height(12.dp))
 
-    Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 6.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "hour/week",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 14.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.W400,
-                    color = TextPrimary
-                )
-            )
-        }
-
-        val items = weeklyTopApps.take(5)
-        if (items.isEmpty()) {
-            Text(
-                "No weekly usage data.",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontSize = 14.sp,
-                    color = TextSecondary
-                )
-            )
-        } else {
-            items.forEach { app ->
-                AppUsageItem(app = app)
-                Spacer(Modifier.height(8.dp))
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                items(items.size) { index ->
+                    AppUsageItem(
+                        app = items[index],
+                        isSelected = (selectedApp == items[index].packageName),
+                        onClick = { onAppTapped(items[index].packageName) },
+                        imageLoader = vm.imageLoader
+                    )
+                }
             }
         }
     }
@@ -257,9 +232,9 @@ fun WeeklyUsageList(
 fun AppUsageItem(
     app: AppUsageInfo,
     isSelected: Boolean = false,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    imageLoader: ImageLoader
 ) {
-    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -268,19 +243,30 @@ fun AppUsageItem(
                 if (onClick != null) Modifier.noRippleClickable { onClick() } else Modifier
             )
             .then(
-                if (isSelected) Modifier.border(1.dp, AquaBlue, RoundedCornerShape(12.dp))
-                else Modifier
+                if (isSelected)
+                    Modifier
+                        .background(color = ComposeColor.White)
+                        .border(
+                            1.dp,
+                            AquaBlue,
+                            RoundedCornerShape(12.dp)
+                        )
+                else
+                    Modifier
             )
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = getAppIconDrawable(context = context, packageName = app.packageName),
+            Image(
+                painter = rememberAsyncImagePainter(
+                    AppIcon(app.packageName),
+                    imageLoader = imageLoader
+                ),
                 contentDescription = null,
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -288,15 +274,15 @@ fun AppUsageItem(
                 text = app.name,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontSize = 14.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.W500
+                    fontWeight = FontWeight.W500
                 )
             )
         }
         Text(
-            text = "%.2f h".format(app.usageTimeInMillis / 1000f / 60f / 60f),
+            text = app.usageTimeInMillis.toReadableDuration(),
             style = MaterialTheme.typography.labelMedium.copy(
                 fontSize = 14.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.W500,
+                fontWeight = FontWeight.W500,
                 color = TextPrimary
             )
         )
@@ -326,6 +312,7 @@ fun CurvedLineChartView(
             .height(350.dp)
     )
 }
+
 fun setupLineChart(
     chart: LineChart,
     labels: List<String>,
@@ -397,6 +384,7 @@ fun setupLineChart(
     chart.isHighlightPerTapEnabled = false
     chart.invalidate()
 }
+
 fun generateColor(index: Int): Int {
     val hue = (index * 47f) % 360f
     return Color.HSVToColor(180, floatArrayOf(hue, 0.8f, 0.95f))

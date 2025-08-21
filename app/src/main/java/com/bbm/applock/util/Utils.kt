@@ -15,8 +15,8 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
-
 
 
 inline fun Modifier.noRippleClickable(
@@ -60,6 +60,25 @@ private val formatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLIS
 val LocalDate.toDayDateMonth: String
     get() {
         return format(formatter)
+    }
+
+val LocalDate.toDayOrdinalAndDayName: String
+    get() {
+        // Get the day of the month (e.g., 22)
+        val dayOfMonth = this.dayOfMonth
+
+        // Get the full day name (e.g., "Mon")
+        val dayName = this.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+
+        // Determine the ordinal suffix
+        val ordinalSuffix = when {
+            dayOfMonth % 10 == 1 && dayOfMonth % 100 != 11 -> "st"
+            dayOfMonth % 10 == 2 && dayOfMonth % 100 != 12 -> "nd"
+            dayOfMonth % 10 == 3 && dayOfMonth % 100 != 13 -> "rd"
+            else -> "th"
+        }
+
+        return "$dayOfMonth$ordinalSuffix $dayName"
     }
 
 val Duration.readable: String

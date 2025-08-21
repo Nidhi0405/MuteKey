@@ -7,5 +7,4 @@ interface SystemAppRepo {
     suspend fun getInstalledAppsWithUsage(days: Int): List<AppUsageInfo>
     suspend fun getInstalledAppsWithUsagesInMap(days: Int): Map<String, List<Long>>
     suspend fun getHourlyAppUsageMapForToday(days: Int): Map<String, List<Long>>
-
 }

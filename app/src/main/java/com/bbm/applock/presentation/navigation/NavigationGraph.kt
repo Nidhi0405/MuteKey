@@ -82,21 +82,21 @@ private fun NavGraphBuilder.initAppScreens(navController: NavHostController) {
         // Example: you already have a Journey composable for today's hourly/radar
         val vm = hiltViewModel<AnalyticsVm>()
         ScreenSurface(Modifier.fillMaxSize()) {
-            TodaysScreen(vm,onBackPress = {navController.popBackStack()})
+            TodaysScreen(vm, onBackPress = { navController.popBackStack() })
         }
     }
 
     composable<MainScreens.AnalyticsLastSevenRoute> {
         val vm = hiltViewModel<AnalyticsVm>()
         ScreenSurface(Modifier.fillMaxSize()) {
-            LastSevenScreen(vm, onBackPress = {navController.popBackStack()})
+            LastSevenScreen(vm, onBackPress = { navController.popBackStack() })
         }
     }
 
     composable<MainScreens.AnalyticsThisWeekRoute> {
         val vm = hiltViewModel<AnalyticsVm>()
         ScreenSurface(Modifier.fillMaxSize()) {
-            ThisWeekScreen(vm,onBackPress = {navController.popBackStack()})
+            ThisWeekScreen(vm, onBackPress = { navController.popBackStack() })
         }
     }
 
