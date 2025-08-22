@@ -265,6 +265,8 @@ fun UsageSummaryCard(
                 },
                 update = { pieChart ->
                     pieChart.data = generatePieData(pieChart.context, topApps)
+                    appUsageInfo = null
+                    pieChart.highlightValues(null)
                     pieChart.invalidate()
                 },
                 modifier = Modifier.fillMaxSize()

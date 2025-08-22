@@ -57,6 +57,6 @@
     <string name="no_apps_on_device">No Apps on device?</string>
     <string name="todays_analytics">Today\'s Analytics</string>
     <string name="last_7_days">Last 7 Days</string>
-    <string name="this_week">This Week</string>
+    <string name="this_week">Weekly Analytics</string>
     <string name="analytics">Analytics</string>
 </resources>
