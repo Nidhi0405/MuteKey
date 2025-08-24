@@ -28,7 +28,6 @@ import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Calendar
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
@@ -59,15 +58,12 @@ class AnalyticsVm @Inject constructor(
         .flowOn(dispatchers.default) // Heavy filtering/sorting on default dispatcher
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList()) // Convert to StateFlow
 
-    val totalUsageTimeForUsageTab: StateFlow<Pair<Long, Long>> = topAppsForUsageTab
+    val totalUsageTimeForUsageTab: StateFlow<Long> = topAppsForUsageTab
         .combine(_hourlyUsageRawMap) { topApps, _ -> // _hourlyUsageRawMap is used to trigger updates
-            val totalTimeMillis = topApps.sumOf { it.usageTimeInMillis }
-            val hours = TimeUnit.MILLISECONDS.toHours(totalTimeMillis)
-            val minutes = TimeUnit.MILLISECONDS.toMinutes(totalTimeMillis) % 60
-            hours to minutes
+            topApps.sumOf { it.usageTimeInMillis }
         }
         .flowOn(dispatchers.default) // Summation on default dispatcher
-        .stateIn(viewModelScope, SharingStarted.Lazily, 0L to 0L) // Convert to StateFlow
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0L) // Convert to StateFlow
 
     val parsedChartData: StateFlow<Pair<List<String>, List<Pair<String, List<Float>>>>> = chartJson
         .combine(_hourlyUsageRawMap) { json, _ -> // _hourlyUsageRawMap is used to trigger updates

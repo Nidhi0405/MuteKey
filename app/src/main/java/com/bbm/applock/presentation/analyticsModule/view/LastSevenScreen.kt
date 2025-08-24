@@ -198,13 +198,13 @@ fun WeeklyTopAppsInteractive(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "hour/week",
+                    text = "Hour/Week",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W400,
                         color = TextPrimary
                     ),
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 18.dp)
                 )
             }
 

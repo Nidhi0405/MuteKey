@@ -414,8 +414,7 @@ fun TimeSelectionCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier,
-        onClick = onClick,
+        modifier = modifier.noRippleClickable(onClick),
         colors = CardDefaults.cardColors(containerColor = WhiteColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -429,7 +428,7 @@ fun TimeSelectionCard(
                 text = heading,
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = TextPrimary,
-                    fontSize = 16.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     textAlign = TextAlign.Center,
                 ),
@@ -440,8 +439,8 @@ fun TimeSelectionCard(
                 text = time,
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = TextSecondary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W500,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.W600,
                     textAlign = TextAlign.Center,
                 ),
                 modifier = Modifier.fillMaxWidth()

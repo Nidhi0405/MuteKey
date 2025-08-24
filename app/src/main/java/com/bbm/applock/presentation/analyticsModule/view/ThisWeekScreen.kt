@@ -84,7 +84,7 @@ fun ThisWeekScreen(
     modifier: Modifier = Modifier
 ) {
     val topApps by vm.topAppsForUsageTab.collectAsState()
-    val (hours, minutes) = vm.totalUsageTimeForUsageTab.collectAsState().value
+    val usageMillis = vm.totalUsageTimeForUsageTab.collectAsState().value
 
     var usageMode by remember { mutableStateOf("Weekly") } // "Weekly" | "Daily"
     val cacheReady by vm.isCacheReady.collectAsState()
@@ -162,14 +162,13 @@ fun ThisWeekScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 20.dp)
+                        .padding(horizontal = 16.dp)
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     UsageSummaryCard(
                         topApps = topApps,
-                        hours = hours,
-                        minutes = minutes,
+                        usageMillis = usageMillis,
                         selectedDay = if (usageMode == "Daily") {
                             dateForCell(weekOffset, selectedDayOffset)
                         } else null,
@@ -209,8 +208,7 @@ fun ThisWeekScreen(
 @Composable
 fun UsageSummaryCard(
     topApps: List<AppUsageInfo>,
-    hours: Long,
-    minutes: Long,
+    usageMillis: Long,
     modifier: Modifier = Modifier,
     selectedDay: LocalDate?,
     isCurrentWeek: Boolean
@@ -289,7 +287,7 @@ fun UsageSummaryCard(
                 )
                 Text(
                     text = (appUsageInfo?.usageTimeInMillis?.toReadableDuration())
-                        ?: "$hours h $minutes m",
+                        ?: usageMillis.toReadableDuration(),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontSize = 24.sp,
                         fontWeight = FontWeight.W600,
@@ -325,12 +323,13 @@ fun AppUsageList(
         horizontalArrangement = Arrangement.End
     ) {
         Text(
-            text = if (isWeekly) "Hour / Week" else "Hour / Day",
+            text = if (isWeekly) "Hour/Week" else "Hour/Day",
             style = MaterialTheme.typography.labelSmall.copy(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.W400,
                 color = TextPrimary
-            )
+            ),
+            modifier = Modifier.padding(horizontal = 2.dp)
         )
     }
     LazyColumn(
