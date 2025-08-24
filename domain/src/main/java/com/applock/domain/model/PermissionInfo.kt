@@ -17,11 +17,11 @@ data class PermissionInfo(
         val className: String
     )
 
-    enum class PermissionType {
-        NOTIFICATION,
-        USAGE,
-        ACCESSIBILITY,
-        AUTO_START,
-        READ_NOTIFICATION
+    enum class PermissionType(val permissionName: String) {
+        NOTIFICATION("Notification Permission"),
+        USAGE("Usage Permission"),
+        ACCESSIBILITY("Accessibility Permission"),
+        AUTO_START("Auto Start Permission"),
+        READ_NOTIFICATION("Notification Block Permission")
     }
 }

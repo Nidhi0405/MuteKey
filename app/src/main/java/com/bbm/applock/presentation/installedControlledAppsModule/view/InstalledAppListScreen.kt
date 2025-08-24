@@ -310,7 +310,7 @@ private fun PermissionContent(
     ) {
         for ((index, permission) in permissions.permissions.withIndex()) {
             PermissionRow(
-                title = permission.permissionType.name,
+                title = permission.permissionType.permissionName,
                 allowClick = { click.invoke(permission) },
                 modifier = Modifier.fillMaxWidth()
             )
