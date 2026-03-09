@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 
 
 val LightBlue = Color(0xFFEAF9FF)
+val White = Color(0xFFFFFFFF)
 val AquaBlue = Color(0XFF0C9BBB)
 val AquaBlueLight = Color(0XFF6BD1CD)
 val AccentPink = Color(0xFFF50057)

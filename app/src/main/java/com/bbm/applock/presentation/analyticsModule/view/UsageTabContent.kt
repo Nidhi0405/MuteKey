@@ -3,7 +3,6 @@ package com.bbm.applock.presentation.analyticsModule.view
 import android.content.Context
 import android.graphics.Color
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,15 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,15 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -50,106 +40,103 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import coil3.compose.AsyncImage
 import com.applock.domain.model.AppUsageInfo
-import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
 import com.bbm.applock.ui.theme.AquaBlue
-import com.bbm.applock.ui.theme.AquaBlueLight
+import com.bbm.applock.ui.theme.LightBlue
 import com.bbm.applock.ui.theme.Red
-import com.bbm.applock.ui.theme.TextSecondary
+import com.bbm.applock.ui.theme.TextPrimary
+import com.bbm.applock.ui.theme.White
 import com.bbm.applock.util.RoundedSlicesPieChartRenderer
 import com.bbm.applock.util.getAppIconDrawable
-import com.bbm.applock.util.noRippleClickable
 import com.github.mikephil.charting.animation.Easing
 import com.github.mikephil.charting.charts.PieChart
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
+import java.text.SimpleDateFormat
 import java.util.Calendar
-import androidx.compose.ui.graphics.Color as ComposeColor
+import java.util.Locale
 
 @Composable
 fun UsageTabContent(
     vm: AnalyticsVm,
     modifier: Modifier = Modifier
 ) {
+    val apps by vm.installedApps.collectAsState()
     val topApps by vm.topAppsForUsageTab.collectAsState()
     val (hours, minutes) = vm.totalUsageTimeForUsageTab.collectAsState().value
-    var usageMode by remember { mutableStateOf("Weekly") }
-    var selectedDayOffset by remember { mutableIntStateOf(6) }
+    val selectedDateMillis by vm.selectedDateMillis.collectAsState()
 
-    LaunchedEffect(usageMode, selectedDayOffset) {
-        val daysToSync = if (usageMode == "Weekly") 7 else (6 - selectedDayOffset) + 1
-        vm.syncAndGetInstalledApps(daysToSync)
+    val selectedDate =
+        Calendar.getInstance().apply {
+            timeInMillis = selectedDateMillis
+        }
+
+    val viewMode by vm.viewMode.collectAsState()
+
+    LaunchedEffect(selectedDate, viewMode) {
+        vm.syncUsageForSelectedDate()
     }
 
-    Box(modifier = modifier) {
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(LightBlue)
+    ) {
         Column {
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                ModeDropdown(selectedMode = usageMode) { newMode ->
-                    usageMode = newMode
-                    val daysToSync =
-                        if (newMode == "Weekly") 7 else 1
-                    vm.syncAndGetInstalledApps(daysToSync)
-                    selectedDayOffset = 6
-                }
-            }
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(Modifier.height(12.dp))
-
-            WeekDaysBar(
+            UsageSummaryCard(
+                topApps = topApps,
+                hours = hours,
+                minutes = minutes,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
-                usageMode = usageMode,
-                selectedOffset = selectedDayOffset,
-                onDaySelected = { newOffset ->
-                    selectedDayOffset = newOffset
-                    vm.syncAndGetInstalledApps(6 - newOffset + 1)
-                }
+                selectedDate = selectedDate,
+                viewMode = viewMode
             )
 
-            if (topApps.isNotEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    UsageSummaryCard(
-                        topApps = topApps,
-                        hours = hours,
-                        minutes = minutes,
-                        modifier = Modifier
-                    )
+            Spacer(modifier = Modifier.height(16.dp))
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    AppUsageList(
-                        topApps = topApps,
-                        modifier = Modifier
-                    )
-                }
+            if (apps.isNotEmpty()) {
+                AppUsageList(
+                    topApps = apps
+                        .filter { it.usageTimeInMillis > 0L }
+                        .sortedByDescending { it.usageTimeInMillis },
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
             } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "No usage data available for selected period.",
-                        color = ComposeColor.DarkGray
-                    )
-                }
+                EmptyState(viewMode)
+            }
+
+            if (viewMode == AnalyticsVm.CalendarViewMode.WEEK || viewMode == AnalyticsVm.CalendarViewMode.DAY) {
+                WeekDaysBar(vm = vm, modifier = Modifier.padding(horizontal = 20.dp))
             }
         }
+    }
+}
+
+@Composable
+fun EmptyState(viewMode: AnalyticsVm.CalendarViewMode) {
+
+    val message = when (viewMode) {
+        AnalyticsVm.CalendarViewMode.DAY -> "No usage data for selected day."
+        AnalyticsVm.CalendarViewMode.WEEK -> "No usage data for selected week."
+        AnalyticsVm.CalendarViewMode.MONTH -> "No usage data for selected month."
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = message,
+            color = TextPrimary
+        )
     }
 }
 
@@ -158,48 +145,41 @@ fun UsageSummaryCard(
     topApps: List<AppUsageInfo>,
     hours: Long,
     minutes: Long,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectedDate: Calendar,
+    viewMode: AnalyticsVm.CalendarViewMode
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = 2.dp, horizontal = 20.dp),
+            .background(White)
+            .padding(vertical = 40.dp, horizontal = 20.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "Target Time\n23 hours Max",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(top = 50.dp)
-        )
+
         val chartSize = 250.dp
 
         Box(
-            modifier = Modifier
-                .padding(vertical = 60.dp)
-                .size(chartSize)
-                .align(Alignment.Center)
+            modifier = Modifier.size(chartSize),
+            contentAlignment = Alignment.Center
         ) {
+
             AndroidView(
                 factory = { ctx ->
                     PieChart(ctx).apply {
-                        setUsePercentValues(false)
                         description.isEnabled = false
                         isDrawHoleEnabled = true
                         setHoleColor(Color.TRANSPARENT)
                         setDrawEntryLabels(false)
-                        holeRadius = 78f
-                        transparentCircleRadius = 78f
-                        setDrawRoundedSlices(true)
-                        setDrawSlicesUnderHole(true)
+
+                        holeRadius = 80f
+                        transparentCircleRadius = 80f
+
                         legend.isEnabled = false
                         renderer = RoundedSlicesPieChartRenderer(this, animator, viewPortHandler)
                         data = generatePieData(ctx, topApps)
-                        animateY(1400, Easing.EaseInOutExpo)
+                        animateY(1200, Easing.EaseInOutExpo)
                     }
                 },
                 update = { pieChart ->
@@ -210,30 +190,45 @@ fun UsageSummaryCard(
             )
 
             Column(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(top = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "Total Time",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 14.sp,
+                    color = TextPrimary
                 )
+
+                Spacer(Modifier.height(6.dp))
+
                 Text(
-                    text = "$hours h $minutes m",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.headlineMedium
+                    text = if (hours > 0)
+                        "${hours}h ${minutes}m"
+                    else
+                        "${minutes}m",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AquaBlue
                 )
+
                 Text(
-                    text = "This week!",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = when (viewMode) {
+                        AnalyticsVm.CalendarViewMode.MONTH -> "This Month"
+                        AnalyticsVm.CalendarViewMode.DAY -> "${formatDate(selectedDate)}"
+                        AnalyticsVm.CalendarViewMode.WEEK -> "This Week"
+                    },
+                    fontSize = 14.sp,
+                    color = TextPrimary
                 )
+
+                Spacer(Modifier.height(4.dp))
             }
         }
     }
+}
+
+fun formatDate(calendar: Calendar): String {
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    return dateFormat.format(calendar.time)
 }
 
 @Composable
@@ -241,67 +236,61 @@ fun AppUsageList(
     topApps: List<AppUsageInfo>,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End
-    ) {
-        Text(
-            text = "Hour / Week",
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
-
-    topApps.forEach {
-        AppUsageItem(app = it)
-        Spacer(Modifier.height(8.dp))
-    }
-}
-
-@Composable
-fun AppUsageItem(app: AppUsageInfo) {
-    val context = LocalContext.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = getAppIconDrawable(context = context, packageName = app.packageName),
-                contentDescription = null,
+    LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(topApps) { app ->
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = app.name,
-                style = MaterialTheme.typography.bodyMedium
-            )
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val context = LocalContext.current
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        model = getAppIconDrawable(context, app.packageName),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(text = app.name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                Text(
+                    text = formatUsageTime(app.usageTimeInMillis),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
-        Text(
-            text = "%.2f".format(app.usageTimeInMillis / 1000f / 60f / 60f) + " h",
-            style = MaterialTheme.typography.bodyMedium
-        )
     }
 }
+
+fun formatUsageTime(millis: Long): String {
+    val totalMinutes = millis / 1000 / 60
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+}
+
 
 @Composable
 fun WeekDaysBar(
+    vm: AnalyticsVm,
     modifier: Modifier = Modifier,
-    usageMode: String,
-    selectedOffset: Int,
-    onDaySelected: (Int) -> Unit
 ) {
-    val calendar = Calendar.getInstance()
-    val todayDate = calendar.get(Calendar.DAY_OF_MONTH)
-    val todayMonth = calendar.get(Calendar.MONTH)
-    val todayYear = calendar.get(Calendar.YEAR)
+    val selectedDateMillis by vm.selectedDateMillis.collectAsState()
+
+    val selectedDate = remember(selectedDateMillis) {
+        Calendar.getInstance().apply {
+            timeInMillis = selectedDateMillis
+        }
+    }
 
     val daysList = (0..6).map { offset ->
-        val cal = Calendar.getInstance()
-            .apply { add(Calendar.DAY_OF_YEAR, offset - 6) }
+        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, offset - 6) }
         DayInfo(
             offsetFromToday = offset,
             dayOfWeek = cal.get(Calendar.DAY_OF_WEEK),
@@ -323,90 +312,62 @@ fun WeekDaysBar(
         )
     }
 
-    val weekendDays = listOf(Calendar.SATURDAY, Calendar.SUNDAY)
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(ComposeColor.White)
-            .wrapContentHeight()
+            .background(White)
+            //.wrapContentHeight()
             .padding(vertical = 12.dp, horizontal = 8.dp)
     ) {
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            //verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
             daysList.forEach { dayInfo ->
-                val isWeekend = dayInfo.dayOfWeek in weekendDays
-                val isToday =
-                    (dayInfo.dayOfMonth == todayDate) && (dayInfo.month == todayMonth) && (dayInfo.year == todayYear)
 
-                val isSelected = when (usageMode) {
-                    "Weekly" -> false
-                    "Daily" -> dayInfo.offsetFromToday == selectedOffset
-                    else -> false
-                }
-
-                val bgColor = when {
-                    isSelected -> Red
-                    isToday -> AquaBlueLight
-                    isWeekend -> Red.copy(alpha = 0.6f)
-                    else -> AquaBlue // Blue otherwise
-                }
+                val isSelected =
+                    dayInfo.dayOfMonth == selectedDate.get(Calendar.DAY_OF_MONTH) &&
+                            dayInfo.month == selectedDate.get(Calendar.MONTH) &&
+                            dayInfo.year == selectedDate.get(Calendar.YEAR)
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
                     Text(
-                        text = dayCharMap[dayInfo.dayOfWeek] ?: "?",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = dayCharMap[dayInfo.dayOfWeek] ?: "",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W600
                     )
+
                     Spacer(Modifier.height(6.dp))
+
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .then(
-                                if (isSelected) Modifier.border(
-                                    2.dp,
-                                    ComposeColor.Red,
-                                    CircleShape
-                                )
-                                else Modifier
-                            )
                             .clip(CircleShape)
-                            .clickable(enabled = usageMode == "Daily") {
-                                onDaySelected(dayInfo.offsetFromToday)
-                            }
-                            .background(bgColor),
+                            .background(if (isSelected) Red else AquaBlue)
+                            .clickable {
+                                val tappedDate = Calendar.getInstance().apply {
+                                    set(Calendar.YEAR, dayInfo.year)
+                                    set(Calendar.MONTH, dayInfo.month)
+                                    set(Calendar.DAY_OF_MONTH, dayInfo.dayOfMonth)
+                                }
+                                if (isSelected) {
+                                    vm.syncUsageForSelectedDate() // refresh weekly usage
+                                    vm.setViewMode(AnalyticsVm.CalendarViewMode.WEEK)
+                                } else {
+                                    vm.onDateTapped(tappedDate) // select new date
+                                    vm.setViewMode(AnalyticsVm.CalendarViewMode.DAY)
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .then(
-                                    if (isSelected) Modifier.border(
-                                        1.dp,
-                                        ComposeColor.White,
-                                        CircleShape
-                                    )
-                                    else Modifier
-                                )
-                                .clip(CircleShape)
-                                .background(bgColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "${dayInfo.dayOfMonth}",
-                                color = ComposeColor.White,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.W600
-                                )
-                            )
-                        }
+                        Text(
+                            text = "${dayInfo.dayOfMonth}",
+                            color = White,
+                            fontWeight = FontWeight.W600
+                        )
                     }
                 }
             }
@@ -422,72 +383,9 @@ data class DayInfo(
     val year: Int
 )
 
-@Composable
-fun ModeDropdown(selectedMode: String, onModeSelected: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor.White)
-            .wrapContentSize()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        contentAlignment = Alignment.TopEnd
-    ) {
-        Row(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .noRippleClickable {
-                    expanded = true
-                }
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = selectedMode,
-                color = ComposeColor.DarkGray,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W400,
-                    color = TextSecondary
-                )
-            )
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                painter = painterResource(R.drawable.ic_drop_down),
-                contentDescription = null,
-                modifier = Modifier.size(8.dp)
-            )
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            listOf("Weekly", "Daily").forEach {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = it, style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 18.sp,
-                                color = TextSecondary,
-                                fontWeight = FontWeight.W400
-                            )
-                        )
-                    },
-                    onClick = {
-                        onModeSelected(it)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
 fun generatePieData(context: Context, apps: List<AppUsageInfo>): PieData {
     val entries = apps.mapIndexed { index, app ->
         val adjusted = if (app.usageTimeInMillis < 10 * 60 * 1000L) {
-            // Apply a minimum value to very small slices for visibility
             10 * 60 * 1000f
         } else app.usageTimeInMillis.toFloat()
 
@@ -520,18 +418,42 @@ fun generatePieData(context: Context, apps: List<AppUsageInfo>): PieData {
 
 @Preview(showBackground = true)
 @Composable
-fun PreviewWeekDaysBar() {
+fun PreviewWeekDaysBarSimple() {
     MaterialTheme {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(ComposeColor(0xFFF0F8FF))
+                .background(LightBlue)
         ) {
-            WeekDaysBar(
-                usageMode = "Daily",
-                selectedOffset = 6, // Today
-                onDaySelected = {}
-            )
+            val selectedDate = Calendar.getInstance()
+            val daysList = (0..6).map { offset ->
+                val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, offset - 6) }
+                DayInfo(
+                    offsetFromToday = offset,
+                    dayOfWeek = cal.get(Calendar.DAY_OF_WEEK),
+                    dayOfMonth = cal.get(Calendar.DAY_OF_MONTH),
+                    month = cal.get(Calendar.MONTH),
+                    year = cal.get(Calendar.YEAR)
+                )
+            }
+
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    daysList.forEach { day ->
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(AquaBlue),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "${day.dayOfMonth}", color = White)
+                        }
+                    }
+                }
+            }
         }
     }
 }

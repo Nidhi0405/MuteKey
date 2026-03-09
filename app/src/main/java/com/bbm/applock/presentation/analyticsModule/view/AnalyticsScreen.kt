@@ -1,10 +1,7 @@
 package com.bbm.applock.presentation.analyticsModule.view
 
-import android.content.Context
-import android.graphics.Color
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,13 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,43 +36,57 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toBitmap
-import com.bbm.applock.R
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
 import com.bbm.applock.ui.theme.AquaBlue
-import com.bbm.applock.ui.theme.WhiteColor
-import com.bbm.applock.util.IconLineChartRenderer
 import com.bbm.applock.util.getAppIconDrawable
 import com.bbm.applock.util.getAppNameFromPackage
-import com.bbm.applock.util.noRippleClickable
-import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.components.XAxis
-import com.github.mikephil.charting.data.Entry
-import com.github.mikephil.charting.data.LineData
-import com.github.mikephil.charting.data.LineDataSet
-import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
-import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
-import com.github.mikephil.charting.utils.MPPointF
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import java.util.concurrent.TimeUnit
-import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import com.bbm.applock.ui.theme.AquaBlueBorder
+import com.bbm.applock.ui.theme.AquaBlueLight
+import com.bbm.applock.ui.theme.DisableColor
+import com.bbm.applock.ui.theme.LightBlue
+import com.bbm.applock.ui.theme.TextPrimary
+import com.bbm.applock.ui.theme.TextSecondary
+import com.bbm.applock.ui.theme.White
 
 @Composable
 fun AnalyticsScreen(vm: AnalyticsVm) {
-    val parsedChartData by vm.parsedChartData.collectAsState()
     val combinedHourlyUsage by vm.combinedHourlyUsage.collectAsState()
+    val hourlyUsageMap by vm.hourlyUsageMap.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
+    var showCalendar by remember { mutableStateOf(false) }
+    val chartData by vm.parsedChartData.collectAsState(
+        initial = Pair(emptyList(), emptyList())
+    )
+
+    val labels = chartData.first
+    val series = chartData.second
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ComposeColor(0xFFE0F7FA)) // light background
+            .background(LightBlue)
+            .padding(top = 16.dp)
     ) {
         TabSelector(selectedTab) {
             selectedTab = it
@@ -87,39 +95,101 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
             }
         }
 
-        // Tab Content
+        Spacer(Modifier.height(12.dp))
+
+        val headerTitle = when (selectedTab) {
+            0 -> "Today's Analytics"
+            1 -> "Weekly Analytics"
+            else -> ""
+        }
+
+        if (selectedTab != 2) {
+            AnalyticsHeader(
+                headerTitle,
+                onMonthClick = {
+                    if (selectedTab == 1) {
+                        showCalendar = !showCalendar
+                    }
+                }
+            )
+        }
+
+        //Spacer(Modifier.height(16.dp))
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxSize(),
+            userScrollEnabled = false
+        ) {
+            when (it) {
+                0 -> Radar24HrScreen(
+                    hourlyData = combinedHourlyUsage,
+                    hourlyUsageMap = hourlyUsageMap
+                )
+
+                1 -> Column {
+                    if (showCalendar) {
+                        UsageCalendar(
+                            vm = vm,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 12.dp)
+                        )
+                    }
+                    UsageTabContent(vm = vm)
+                }
+
+                2 -> PerformanceTabContent(
+                    vm = vm,
+                    series = series,
+                    hourlyUsageMap = hourlyUsageMap // Ensure you're passing this data
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(selectedTab) {
+        if (selectedTab != 1) {
+            showCalendar = false
+        }
+    }
+}
+
+@Composable
+fun AnalyticsHeader(title: String, onMonthClick: () -> Unit) {
+
+    val currentMonth = remember {
+        SimpleDateFormat("MMMM", Locale.getDefault()).format(Calendar.getInstance().time)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = AquaBlue
+            )
+        }
+
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .clip(RoundedCornerShape(12.dp))
+                .background(AquaBlue)
+                .clickable { onMonthClick() }
+                .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = false
-            ) {
-                when (it) {
-                    0 -> JourneyTabContent(
-                        labels = parsedChartData.first,
-                        series = parsedChartData.second,
-                        hourlyData = combinedHourlyUsage
-                    )
-
-                    1 -> UsageTabContent(
-                        vm,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-
-            if (selectedTab == 0 && (parsedChartData.first.isEmpty() || combinedHourlyUsage.isEmpty())) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Loading chart...", color = ComposeColor.DarkGray)
-                }
-            } else if (selectedTab == 1 && vm.installedApps.collectAsState().value.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Loading apps data...", color = ComposeColor.DarkGray)
-                }
-            }
+            Text(
+                text = currentMonth, color = White, fontSize = 14.sp
+            )
         }
     }
 }
@@ -129,13 +199,13 @@ fun TabSelector(selectedTab: Int, onTabSelected: (Int) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp)
             .height(40.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(ComposeColor(0xFFE0F7FA))
+            .background(LightBlue)
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
-            listOf("Journey", "Usage").forEachIndexed { index, label ->
+            listOf("24hr Radar", "Usage", "Performance").forEachIndexed { index, label ->
                 val isSelected = index == selectedTab
                 Box(
                     modifier = Modifier
@@ -143,338 +213,377 @@ fun TabSelector(selectedTab: Int, onTabSelected: (Int) -> Unit) {
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(20.dp))
                         .background(
-                            if (isSelected)
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        ComposeColor(0xFF4DD0E1),
-                                        ComposeColor(0xFF4DD0E1),
-                                        ComposeColor(0xFF0097A7)
-                                    )
+                            if (isSelected) Brush.horizontalGradient(
+                                listOf(
+                                    AquaBlueLight, AquaBlue
                                 )
-                            else
-                                SolidColor(ComposeColor.White)
+                            )
+                            else SolidColor(White)
                         )
-                        .clickable { onTabSelected(index) },
-                    contentAlignment = Alignment.Center
+                        .clickable { onTabSelected(index) }, contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        text = label, style = MaterialTheme.typography.bodyMedium.copy(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
-                            color = if (isSelected) ComposeColor.Black else ComposeColor.DarkGray,
+                            color = if (isSelected) TextPrimary else TextSecondary,
                         )
                     )
                 }
-                if (index == 0)
-                    Spacer(Modifier.width(8.dp))
+                if (index < 2) Spacer(Modifier.width(8.dp))
             }
         }
     }
 }
 
 @Composable
-fun JourneyTabContent(
-    labels: List<String>,
-    series: List<Pair<String, List<Float>>>,
-    hourlyData: List<Long>
+fun Radar24HrScreen(
+    hourlyData: List<Long>, hourlyUsageMap: Map<String, List<Long>>
 ) {
-    var selectedApp by remember {
-        mutableStateOf<String?>(null)
+    var selectedStartHour by remember { mutableStateOf<Int?>(null) }
+    var showAM by remember { mutableStateOf(true) }
+
+    val selectedRange = selectedStartHour?.let { start ->
+        start..((start).coerceAtMost(11))
     }
-    val rSeries = remember(series) {
-        mutableStateOf(series)
+
+    val filteredHourlyData = if (showAM) {
+        hourlyData.take(12)
+    } else {
+        hourlyData.drop(12)
     }
+
+    val totalMillis = if (selectedRange == null) {
+        filteredHourlyData.sum()
+    } else {
+        selectedRange.sumOf { localHour ->
+            val globalHour = if (showAM) {
+                localHour
+            } else {
+                localHour + 12
+            }
+            hourlyData.getOrNull(globalHour) ?: 0L
+        }
+    }
+
+    val totalMinutes = TimeUnit.MILLISECONDS.toMinutes(totalMillis)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
     ) {
-        Spacer(Modifier.height(8.dp))
-        HourlyUsageBarChart(
-            hourlyData = hourlyData,
+
+        Spacer(Modifier.height(12.dp))
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(WhiteColor)
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-        )
-        Spacer(Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.Bottom
+                .height(400.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(White), contentAlignment = Alignment.Center
         ) {
-            if (labels.isNotEmpty() && series.isNotEmpty()) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxSize()
+            ) {
+
                 Text(
-                    text = stringResource(R.string.last_7_days_top_5_app_engagement),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 20.dp)
+                    text = "Hourly Usage",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = AquaBlue,
+                    modifier = Modifier.padding(top = 16.dp)
                 )
+
                 Spacer(Modifier.height(8.dp))
-                CurvedLineChartView(
-                    labels = labels,
-                    series = rSeries.value,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                ChartLegendRow(
-                    selectedApp = selectedApp,
-                    apps = series.map { it.first },
-                    onAppClick = { pkg ->
-                        if (selectedApp == pkg) {
-                            selectedApp = null
-                            rSeries.value = series
-                        } else {
-                            selectedApp = pkg
-                            rSeries.value = series.filter { it.first == pkg }
-                        }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    listOf("AM", "PM").forEachIndexed { index, label ->
+                        val isSelected = (index == 0 && showAM) || (index == 1 && !showAM)
+                        Text(
+                            text = label,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) LightBlue else AquaBlue,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    if (isSelected) AquaBlue else LightBlue
+                                )
+                                .clickable { showAM = index == 0 }
+                                .padding(horizontal = 12.dp, vertical = 6.dp))
+                        if (index == 0) Spacer(Modifier.width(8.dp))
                     }
-                )
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No journey data available.", color = ComposeColor.DarkGray)
                 }
+
+                Spacer(Modifier.height(16.dp))
+
+                Box(
+                    contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()
+                ) {
+                    Interactive12HrRadar(
+                        hourlyData = filteredHourlyData,
+                        selectedRange = selectedRange,
+                        onHourSelected = { hour ->
+                            selectedStartHour = if (selectedStartHour == hour) null else hour
+                        })
+
+                    RadarCenterContent(
+                        totalMinutes = totalMinutes, selectedRange = selectedRange, isAM = showAM
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        FullAppUsageList(
+            hourlyUsageMap = hourlyUsageMap, selectedRange = selectedRange, isAM = showAM
+        )
+    }
+}
+
+@Composable
+fun Interactive12HrRadar(
+    hourlyData: List<Long>, selectedRange: IntRange?, onHourSelected: (Int) -> Unit
+) {
+    require(hourlyData.size == 12) { "hourlyData must contain exactly 12 values." }
+
+    val maxUsage = hourlyData.maxOrNull()?.toFloat()?.takeIf { it > 0 } ?: 1f
+
+    Canvas(
+        modifier = Modifier
+            .size(260.dp)
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val dx = offset.x - center.x
+                    val dy = offset.y - center.y
+
+                    var angle = Math.toDegrees(
+                        kotlin.math.atan2(dy.toDouble(), dx.toDouble())
+                    )
+
+                    angle = (angle + 450) % 360
+
+                    val hour = (((angle + 15) % 360) / 30).toInt()
+
+                    onHourSelected(hour)
+                }
+            }) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val radius = size.minDimension / 2f
+        val strokeWidth = 34f
+
+        drawCircle(
+            color = AquaBlueBorder, radius = radius - strokeWidth / 2, style = Stroke(width = 2f)
+        )
+
+        drawArc(
+            color = LightBlue,
+            startAngle = -90f,
+            sweepAngle = 360f,
+            useCenter = false,
+            style = Stroke(strokeWidth)
+        )
+
+        drawCircle(
+            color = AquaBlueBorder, radius = radius + strokeWidth / 2, style = Stroke(width = 2f)
+        )
+
+        hourlyData.forEachIndexed { hour, millis ->
+
+            val ratio = (millis / maxUsage).coerceIn(0f, 1f)
+            val isSelected = selectedRange?.contains(hour) == true
+
+            val sliceColor = if (isSelected) {
+                AquaBlue
+            } else {
+                lerp(LightBlue, AquaBlueLight, ratio)
+            }
+
+            drawArc(
+                color = sliceColor,
+                startAngle = -90f + hour * 30f,
+                sweepAngle = 28f,
+                useCenter = false,
+                style = Stroke(
+                    width = strokeWidth, cap = StrokeCap.Round
+                )
+            )
+        }
+
+        hourlyData.forEachIndexed { hour, _ ->
+
+            val angleDeg = -90f + hour * 30f
+            val angleRad = Math.toRadians(angleDeg.toDouble())
+
+            val textRadius = radius - strokeWidth - 28f
+
+            val x = center.x + (textRadius * kotlin.math.cos(angleRad)).toFloat()
+            val y = center.y + (textRadius * kotlin.math.sin(angleRad)).toFloat()
+
+            drawContext.canvas.nativeCanvas.apply {
+
+                val paint = android.graphics.Paint().apply {
+                    color = DisableColor.toArgb()
+                    textSize = 34f
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    isFakeBoldText = true
+                    isAntiAlias = true
+                }
+
+                val displayHour = if (hour == 0) 12 else hour
+
+                val textHeight = paint.descent() + paint.ascent()
+
+                drawText(
+                    displayHour.toString(), x, y - textHeight / 2, paint
+                )
             }
         }
     }
 }
 
 @Composable
-fun ChartLegendRow(
-    selectedApp: String?,
-    apps: List<String>,
-    onAppClick: (String) -> Unit = {},
+fun RadarCenterContent(
+    totalMinutes: Long, selectedRange: IntRange?, isAM: Boolean
+) {
+
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+
+    val title = if (selectedRange == null) {
+        if (isAM) "12:00 AM - 11:59 AM" else "12:00 PM - 11:59 PM"
+    } else {
+        "${formatHour(selectedRange.first, isAM)} - ${
+            formatHour(
+                (selectedRange.last + 1) % 12, isAM
+            )
+        }"
+    }
+
+    Box(
+        modifier = Modifier
+            .width(160.dp)
+            .height(100.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(
+                Brush.radialGradient(
+                    listOf(
+                        AquaBlue, AquaBlueBorder
+                    )
+                )
+            ), contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+            Text(title, color = LightBlue, fontSize = 12.sp)
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                "$hours h $minutes m", color = White, fontWeight = FontWeight.Bold, fontSize = 20.sp
+            )
+        }
+    }
+}
+
+private fun formatHour(hour: Int, isAM: Boolean): String {
+    val globalHour = if (!isAM) hour + 12 else hour
+    val displayHour = when (val h = globalHour % 24) {
+        0 -> 12
+        in 1..11 -> h
+        12 -> 12
+        else -> h - 12
+    }
+    val amPm = if (globalHour < 12 || globalHour >= 24) "AM" else "PM"
+    return "$displayHour:00 $amPm"
+}
+
+@Composable
+fun FullAppUsageList(
+    hourlyUsageMap: Map<String, List<Long>>, selectedRange: IntRange?, isAM: Boolean
 ) {
     val context = LocalContext.current
-    Row(
+
+    val appUsageList = remember(hourlyUsageMap, selectedRange, isAM) {
+        hourlyUsageMap.map { (packageName, usagePerHour) ->
+            val totalMillis = if (selectedRange == null) {
+                usagePerHour.sum()
+            } else {
+                selectedRange.sumOf { localHour ->
+                    val globalHour = if (isAM) localHour else localHour + 12
+                    usagePerHour.getOrNull(globalHour) ?: 0L
+                }
+            }
+            packageName to totalMillis
+        }.filter { it.second > 0L }.sortedByDescending { it.second }
+    }
+
+    if (appUsageList.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center
+        ) {
+            Text("No usage in selected time")
+        }
+        return
+    }
+
+    androidx.compose.foundation.lazy.LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+            .fillMaxHeight(1f),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
     ) {
-        apps.forEach { pkg ->
-            val icon = remember(pkg) { getAppIconDrawable(context, pkg) }
-            val isSelected = selectedApp == pkg
-            val label = getAppNameFromPackage(context, pkg)
-            Column(
-                modifier = Modifier.noRippleClickable { onAppClick(pkg) },
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                icon?.let {
-                    Image(
-                        bitmap = it.toBitmap().asImageBitmap(),
-                        contentDescription = label,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .then(
-                                if (isSelected) {
-                                    Modifier
-                                        .border(2.dp, color = AquaBlue, shape = CircleShape)
-                                        .padding(4.dp)
-                                } else {
-                                    Modifier
-                                }
-                            )
-                    )
-                }
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1
-                )
-            }
-        }
-    }
-}
+        items(appUsageList.size) { index ->
+            val (pkg, millis) = appUsageList[index]
 
-@Composable
-fun CurvedLineChartView(
-    labels: List<String>,
-    series: List<Pair<String, List<Float>>>,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    AndroidView(
-        factory = { ctx ->
-            LineChart(ctx).apply {
-                setupLineChart(this, labels, series, ctx)
-                renderer = IconLineChartRenderer(this, animator, viewPortHandler)
-            }
-        },
-        update = { chart ->
-            setupLineChart(chart, labels, series, context)
-            chart.invalidate()
-        },
-        modifier = modifier
-            .fillMaxWidth()
-            .height(350.dp)
-    )
-}
+            val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
+            val hours = minutes / 60
+            val remainingMinutes = minutes % 60
+            val formattedTime =
+                if (hours > 0) "${hours}h ${remainingMinutes}m" else "${remainingMinutes}m"
 
-fun setupLineChart(
-    chart: LineChart,
-    labels: List<String>,
-    series: List<Pair<String, List<Float>>>,
-    context: Context
-) {
-    val dataSets = ArrayList<ILineDataSet>()
-    series.forEachIndexed { index, (label, values) ->
-        val appName = getAppNameFromPackage(context, label)
-        val isZeroLine = values.all { it == 0f }
-        val safeValues = if (isZeroLine) List(values.size) { 0.01f } else values
-        val iconDrawable = getAppIconDrawable(context, label)
-        val maxIndex = safeValues.indexOf(safeValues.maxOrNull() ?: 0f)
-
-        val entries = safeValues.mapIndexed { i, y ->
-            Entry(i.toFloat(), y).apply {
-                icon = if (i == maxIndex && y > 0f && !isZeroLine) iconDrawable else null
-            }
-        }
-        val color = generateColor(index)
-        val dataSet = LineDataSet(entries, appName).apply {
-            this.color = color
-            valueTextColor = Color.DKGRAY
-            mode = LineDataSet.Mode.HORIZONTAL_BEZIER
-            lineWidth = 5f
-            circleHoleColor = Color.WHITE
-            setDrawCircles(false)
-            setDrawCircleHole(false)
-            circleRadius = 4f
-            circleHoleRadius = 1.5f
-            valueTextSize = 0f
-            setDrawValues(true)
-            setDrawIcons(true)
-            iconsOffset = MPPointF(0f, -24f)
-
-            if (isZeroLine) {
-                enableDashedLine(6f, 3f, 0f)
-            } else {
-                disableDashedLine()
-            }
-        }
-        dataSets.add(dataSet)
-    }
-
-    if (dataSets.isNotEmpty()) {
-        chart.data = LineData(dataSets)
-    } else {
-        chart.data = null // Clear data if no datasets
-    }
-
-    chart.description.isEnabled = false
-    chart.legend.isEnabled = false
-    chart.axisRight.isEnabled = false
-    chart.legend.textColor = Color.DKGRAY
-    chart.xAxis.apply {
-        position = XAxis.XAxisPosition.BOTTOM
-        granularity = 1f
-        valueFormatter = IndexAxisValueFormatter(labels)
-        textColor = Color.DKGRAY
-        setDrawGridLines(false)
-    }
-    chart.axisLeft.textColor = Color.DKGRAY
-    chart.axisLeft.axisMinimum = 0f
-    chart.axisLeft.setDrawGridLines(false)
-    chart.setScaleEnabled(false)
-    chart.setPinchZoom(false)
-    chart.isDoubleTapToZoomEnabled = false
-    chart.isDragEnabled = false
-    chart.isHighlightPerTapEnabled = false
-    chart.invalidate() // Refresh chart
-}
-
-fun generateColor(index: Int): Int {
-    val hue = (index * 47f) % 360f
-    return Color.HSVToColor(180, floatArrayOf(hue, 0.8f, 0.95f))
-}
-
-@Composable
-fun HourlyUsageBarChart(
-    hourlyData: List<Long>,
-    modifier: Modifier = Modifier
-) {
-    val maxUsage = (60 * 60 * 1000L).toFloat()
-    val barWidth = 12.dp
-
-    Column(
-        modifier = modifier.wrapContentSize()
-    ) {
-        Text(
-            text = stringResource(R.string.today_s_hourly_usage),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // Y-Axis Labels Column
-            Column(
-                modifier = Modifier
-                    .padding(end = 4.dp)
-                    .height(180.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End
-            ) {
-                val ySteps = 4 // Number of labels on Y-axis
-                for (i in ySteps downTo 0) {
-                    val label = ((maxUsage * i) / ySteps).toLong().let {
-                        "${TimeUnit.MILLISECONDS.toMinutes(it)} min"
-                    }
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ComposeColor.DarkGray,
-                        modifier = Modifier.height(180.dp / (ySteps))
-                    )
-                }
-            }
-            // Bar Chart Column
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                ) {
-                    hourlyData.forEachIndexed { hour, millis ->
-                        val heightRatio =
-                            (millis / maxUsage).coerceIn(0f, 1f)
-                        val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
 
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .height((heightRatio * 150).dp.coerceAtLeast(4.dp))
-                                    .width(barWidth)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                    .background(AquaBlue)
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = "$hour",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = ComposeColor.DarkGray
-                            )
-                        }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+
+                    val icon = getAppIconDrawable(context, pkg)
+                    icon?.let {
+                        Image(
+                            bitmap = it.toBitmap().asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                        )
                     }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Text(
+                        text = getAppNameFromPackage(context, pkg),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Text(
-                    text = "Each bar = time spent between that hour (in minutes)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = formattedTime,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
     }
 }

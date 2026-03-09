@@ -87,10 +87,12 @@ class InstalledAppVM @Inject constructor(
         }
     }
 
-    fun syncAndGetInstalledApps() {
+    fun syncAndGetInstalledApps(days: Int = 7) {
         viewModelScope.launch(dispatchers.io) {
             _state.emit(UiState.Loading)
-            val list = syncInstalledAppsUseCase.invoke(7)
+            val endTime = System.currentTimeMillis()
+            val startTime = endTime - days * 24 * 60 * 60 * 1000L // Convert days to milliseconds
+            val list = syncInstalledAppsUseCase.invoke(startTime, endTime)
             _installedApps.value = list.sortedByDescending { it.usageTimeInMillis }
             _state.emit(UiState.Success(list, "success"))
         }

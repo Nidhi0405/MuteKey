@@ -38,11 +38,13 @@ class SystemAppRepoImpl @Inject constructor(
         }
     }
 
-    override suspend fun getInstalledAppsWithUsage(days: Int): List<AppUsageInfo> {
+    override suspend fun getInstalledAppsWithUsage(
+        startTime: Long,
+        endTime: Long
+    ): List<AppUsageInfo> {
         val usageStatsManager =
             context.getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
-        val endTime = System.currentTimeMillis()
-        val startTime = endTime - days * 24 * 60 * 60 * 1000L
+
         val usageStatsList = usageStatsManager.queryUsageStats(
             UsageStatsManager.INTERVAL_DAILY,
             startTime,
@@ -50,6 +52,7 @@ class SystemAppRepoImpl @Inject constructor(
         )
         val pm = context.packageManager
         val usageMap = mutableMapOf<String, Long>()
+        val totalScreenTime = TotalScreenTime(0)
 
         usageStatsList?.forEach { stat ->
             usageMap[stat.packageName] =
@@ -57,15 +60,11 @@ class SystemAppRepoImpl @Inject constructor(
         }
 
         val appUsageList = mutableListOf<AppUsageInfo>()
-        val totalScreenTime = TotalScreenTime(0)
         usageMap.forEach { (pkg, totalUsage) ->
             try {
                 val appInfo = pm.getApplicationInfo(pkg, 0)
                 val launchIntent = pm.getLaunchIntentForPackage(pkg)
-                if (pkg.isValidPackage(context) // to skip our app
-                    && launchIntent != null
-                    && totalUsage >= 0
-                ) {
+                if (pkg.isValidPackage(context) && launchIntent != null && totalUsage >= 0) {
                     totalScreenTime.timeInMillis += totalUsage
                     val appName = pm.getApplicationLabel(appInfo).toString()
                     appUsageList.add(
@@ -151,25 +150,16 @@ class SystemAppRepoImpl @Inject constructor(
         return cal.timeInMillis
     }
 
-    override suspend fun getHourlyAppUsageMapForToday(days: Int): Map<String, List<Long>> {
+    override suspend fun getHourlyAppUsageMapForToday(
+        startTime: Long,
+        endTime: Long
+    ): Map<String, List<Long>> {
         val usageStatsManager =
-            context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            set(Calendar.HOUR_OF_DAY, 0)
-        }
-
-        val startTime = calendar.timeInMillis
-        val endTime = System.currentTimeMillis()
-
+            context.getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
         val usageEvents = usageStatsManager.queryEvents(startTime, endTime)
-
-        val sessionMap = mutableMapOf<String, MutableList<Pair<Long, Long>>>()
         val resumedMap = mutableMapOf<String, Long>()
+        val sessionMap = mutableMapOf<String, MutableList<Pair<Long, Long>>>()
         val event = UsageEvents.Event()
-
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(event)
             val pkg = event.packageName ?: continue
@@ -181,42 +171,32 @@ class SystemAppRepoImpl @Inject constructor(
                 UsageEvents.Event.ACTIVITY_PAUSED -> {
                     val start = resumedMap.remove(pkg) ?: continue
                     val end = event.timeStamp
-                    sessionMap.getOrPut(pkg) { mutableListOf() }.add(start to end)
+
+                    sessionMap.getOrPut(pkg) { mutableListOf() }
+                        .add(start to end)
                 }
             }
         }
-
-        val appHourMap = mutableMapOf<String, List<Long>>() // final output map
-
+        val totalHours =
+            ((endTime - startTime) / (60 * 60 * 1000)).toInt().coerceAtLeast(1)
+        val appHourMap = mutableMapOf<String, MutableList<Long>>()
         for ((pkg, sessions) in sessionMap) {
-            val hourBuckets = MutableList(24) { mutableListOf<Pair<Long, Long>>() }
-
+            val buckets = MutableList(totalHours) { 0L }
             for ((start, end) in sessions) {
-                val cal = Calendar.getInstance().apply { timeInMillis = start }
-                val hour = cal.get(Calendar.HOUR_OF_DAY)
-                hourBuckets[hour].add(start to end)
+                var currentStart = start
+                while (currentStart < end) {
+                    val hourIndex =
+                        ((currentStart - startTime) / (60 * 60 * 1000)).toInt()
+                    if (hourIndex !in buckets.indices) break
+                    val hourEnd =
+                        startTime + (hourIndex + 1) * 60 * 60 * 1000
+                    val segmentEnd = minOf(end, hourEnd)
+                    buckets[hourIndex] += (segmentEnd - currentStart)
+                    currentStart = segmentEnd
+                }
             }
-
-            val mergedDurations = hourBuckets.map { sessionList ->
-                val merged = sessionList
-                    .sortedBy { it.first }
-                    .fold(mutableListOf<Pair<Long, Long>>()) { acc, pair ->
-                        if (acc.isEmpty()) acc.add(pair)
-                        else {
-                            val last = acc.last()
-                            if (pair.first <= last.second) {
-                                acc[acc.lastIndex] = last.first to maxOf(last.second, pair.second)
-                            } else acc.add(pair)
-                        }
-                        acc
-                    }
-                merged.sumOf { (start, end) -> (end - start) }
-                    .coerceAtMost(60 * 60 * 1000L) // max 1 hour per hour bucket
-            }
-
-            appHourMap[pkg] = mergedDurations
+            appHourMap[pkg] = buckets
         }
-        appHourMap.entries.joinToString("\n") { "${it.key} => ${it.value.size}" }.logE()
         return appHourMap
     }
 }
