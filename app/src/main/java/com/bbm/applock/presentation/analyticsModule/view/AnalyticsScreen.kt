@@ -78,6 +78,8 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     val chartData by vm.parsedChartData.collectAsState(
         initial = Pair(emptyList(), emptyList())
     )
+    val visibleMonth by vm.visibleMonth.collectAsState()
+    val monthText = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(visibleMonth.time)
 
     val labels = chartData.first
     val series = chartData.second
@@ -105,11 +107,19 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
 
         if (selectedTab != 2) {
             AnalyticsHeader(
-                headerTitle,
+                title = headerTitle,
+                currentMonth = monthText,
                 onMonthClick = {
-                    if (selectedTab == 1) {
-                        showCalendar = !showCalendar
-                    }
+                    // Toggle calendar visibility or open month picker
+                    showCalendar = !showCalendar
+                },
+                onPrevMonth = {
+                    val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
+                    vm.setVisibleMonth(newMonth)
+                },
+                onNextMonth = {
+                    val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                    vm.setVisibleMonth(newMonth)
                 }
             )
         }
@@ -157,12 +167,13 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
 }
 
 @Composable
-fun AnalyticsHeader(title: String, onMonthClick: () -> Unit) {
-
-    val currentMonth = remember {
-        SimpleDateFormat("MMMM", Locale.getDefault()).format(Calendar.getInstance().time)
-    }
-
+fun AnalyticsHeader(
+    title: String,
+    currentMonth: String,
+    onMonthClick: () -> Unit,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -170,25 +181,43 @@ fun AnalyticsHeader(title: String, onMonthClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = AquaBlue
+        )
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = AquaBlue
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(AquaBlue)
-                .clickable { onMonthClick() }
-                .padding(horizontal = 16.dp, vertical = 6.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
             Text(
-                text = currentMonth, color = White, fontSize = 14.sp
+                text = "<",
+                fontSize = 16.sp,
+                color = White,
+                modifier = Modifier
+                    .clickable { onPrevMonth() }
+                    .padding(horizontal = 8.dp)
+            )
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(AquaBlue)
+                    .clickable { onMonthClick() }
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Text(text = currentMonth, color = White, fontSize = 14.sp)
+            }
+
+            Text(
+                text = ">",
+                fontSize = 16.sp,
+                color = White,
+                modifier = Modifier
+                    .clickable { onNextMonth() }
+                    .padding(horizontal = 8.dp)
             )
         }
     }

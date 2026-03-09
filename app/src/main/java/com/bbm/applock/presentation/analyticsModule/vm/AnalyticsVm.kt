@@ -40,6 +40,8 @@ class AnalyticsVm @Inject constructor(
     private var _installedApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
     val installedApps: StateFlow<List<AppUsageInfo>> = _installedApps
 
+    private val _visibleMonth = MutableStateFlow(Calendar.getInstance())
+    val visibleMonth: StateFlow<Calendar> = _visibleMonth
 
     private val _hourlyUsageRawMap = MutableStateFlow<Map<String, List<Long>>>(emptyMap())
     val hourlyUsageMap: StateFlow<Map<String, List<Long>>> = _hourlyUsageRawMap
@@ -91,6 +93,11 @@ class AnalyticsVm @Inject constructor(
 
     private val _selectedDateMillis = MutableStateFlow(System.currentTimeMillis())
     val selectedDateMillis: StateFlow<Long> = _selectedDateMillis
+
+
+    fun setVisibleMonth(calendar: Calendar) {
+        _visibleMonth.value = calendar
+    }
 
     fun setViewMode(mode: CalendarViewMode) {
         _viewMode.value = mode

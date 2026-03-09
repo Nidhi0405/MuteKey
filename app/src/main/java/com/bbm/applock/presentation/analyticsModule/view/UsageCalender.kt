@@ -28,11 +28,11 @@ fun UsageCalendar(
 ) {
     val viewMode by vm.viewMode.collectAsState()
     val selectedDateMillis by vm.selectedDateMillis.collectAsState()
+    var visibleCalendar by remember { mutableStateOf(Calendar.getInstance()) }
+    val visibleMonth by vm.visibleMonth.collectAsState()
 
     val selectedDate = remember(selectedDateMillis) {
-        Calendar.getInstance().also {
-            it.timeInMillis = selectedDateMillis
-        }
+        Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
     }
 
     val dayOfWeekFormat = SimpleDateFormat("EEE", Locale.getDefault())
@@ -49,18 +49,36 @@ fun UsageCalendar(
         when (viewMode) {
 
             CalendarViewMode.MONTH -> {
-                val calendar = Calendar.getInstance()
+                val calendar = visibleCalendar.clone() as Calendar
                 calendar.set(Calendar.DAY_OF_MONTH, 1)
                 val firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1
                 val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
                 val totalCells = firstDayOfWeek + daysInMonth
 
                 Column {
-                    Text(
-                        text = monthYearFormat.format(calendar.time),
-                        fontSize = 16.sp,
-                        color = AquaBlue
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("<", fontSize = 18.sp, modifier = Modifier.clickable {
+                            val newCal = (visibleCalendar.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
+                            visibleCalendar = newCal
+                            vm.setVisibleMonth(newCal)
+                        })
+
+                        Text(
+                            text = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(visibleCalendar.time),
+                            fontSize = 16.sp,
+                            color = AquaBlue
+                        )
+
+                        Text(">", fontSize = 18.sp, modifier = Modifier.clickable {
+                            val newCal = (visibleCalendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                            visibleCalendar = newCal
+                            vm.setVisibleMonth(newCal)
+                        })
+                    }
                     Spacer(Modifier.height(8.dp))
 
                     for (week in 0..5) {
@@ -82,6 +100,8 @@ fun UsageCalendar(
                                             .clickable {
                                                 val updatedDate = Calendar.getInstance().apply {
                                                     timeInMillis = selectedDateMillis
+                                                    set(Calendar.YEAR, calendar.get(Calendar.YEAR))
+                                                    set(Calendar.MONTH, calendar.get(Calendar.MONTH))
                                                     set(Calendar.DAY_OF_MONTH, dayNumber)
                                                 }
                                                 vm.onDateTapped(updatedDate)
