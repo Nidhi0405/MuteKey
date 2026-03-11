@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -74,26 +75,40 @@ class AnalyticsVm @Inject constructor(
         _parsedChartData
 
     val combinedHourlyUsage: StateFlow<List<Long>> = hourlyUsageMap
-        .combine(_installedApps) { hourlyMap, _ -> // _installedApps is used to trigger updates
+        .map { hourlyMap ->
             val combined = MutableList(24) { 0L }
             hourlyMap.values.forEach { appList ->
-                appList.forEachIndexed { hour, millis ->
-                    if (hour < combined.size) { // Ensure index is within bounds
-                        combined[hour] += millis
-                    }
+                appList.forEachIndexed { index, millis ->
+                    // FIX: Use modulo 24 to aggregate multiple days into 24 buckets
+                    val hourOfDay = index % 24
+                    combined[hourOfDay] += millis
                 }
             }
             combined
         }
-        .flowOn(dispatchers.default) // Summation on default dispatcher
-        .stateIn(viewModelScope, SharingStarted.Lazily, List(24) { 0L }) // Convert to StateFlow
+        .flowOn(dispatchers.default)
+        .stateIn(viewModelScope, SharingStarted.Lazily, List(24) { 0L })
+
+    private val _todayHourlyUsageMap = MutableStateFlow<Map<String, List<Long>>>(emptyMap())
+    val todayHourlyUsageMap: StateFlow<Map<String, List<Long>>> = _todayHourlyUsageMap
+    val todayHourlyUsage: StateFlow<List<Long>> = todayHourlyUsageMap
+        .map { hourlyMap ->
+            val combined = MutableList(24) { 0L }
+            hourlyMap.values.forEach { list ->
+                list.forEachIndexed { index, millis ->
+                    if (index < 24) combined[index] += millis
+                }
+            }
+            combined
+        }
+        .flowOn(dispatchers.default)
+        .stateIn(viewModelScope, SharingStarted.Lazily, List(24) { 0L })
 
     private val _viewMode = MutableStateFlow(CalendarViewMode.MONTH)
     val viewMode: StateFlow<CalendarViewMode> = _viewMode
 
     private val _selectedDateMillis = MutableStateFlow(System.currentTimeMillis())
     val selectedDateMillis: StateFlow<Long> = _selectedDateMillis
-
 
     fun setVisibleMonth(calendar: Calendar) {
         _visibleMonth.value = calendar
@@ -105,20 +120,40 @@ class AnalyticsVm @Inject constructor(
 
     init {
         viewModelScope.launch {
-            viewModelScope.launch {
-                syncCurrentMonth()
-            }
+            syncCurrentMonth()
+            syncTodayHourlyUsage()
+            syncUsageForSelectedDate()
         }
     }
 
-    fun syncAndGetInstalledApps(startTime: Long, endTime: Long) {
+    fun syncTodayHourlyUsage() {
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val start = calendar.timeInMillis
+        val end = System.currentTimeMillis()
+
+        viewModelScope.launch(dispatchers.io) {
+            val hourlyMap = getHourlyUsageMapUseCase.invoke(start, end)
+            _todayHourlyUsageMap.value = hourlyMap // 🔹 Correct way to update
+        }
+    }
+
+    fun syncAndGetInstalledApps(startTime: Long, endTime: Long, isTodayMap: Boolean = false) {
         viewModelScope.launch(dispatchers.io) {
             _state.emit(UiState.Loading)
             try {
                 val list = syncInstalledAppsUseCase.invoke(startTime, endTime)
                 _installedApps.value = list
                 val hourlyMap = getHourlyUsageMapUseCase.invoke(startTime, endTime)
-                _hourlyUsageRawMap.value = hourlyMap
+                if (isTodayMap) {
+                    _todayHourlyUsageMap.value = hourlyMap
+                } else {
+                    _hourlyUsageRawMap.value = hourlyMap
+                }
                 _state.emit(UiState.Success(list, "Apps synced successfully"))
             } catch (e: Exception) {
                 _state.emit(UiState.Failure(e, "Error syncing apps: ${e.message}"))
@@ -129,7 +164,9 @@ class AnalyticsVm @Inject constructor(
 
     fun onDateTapped(date: Calendar) {
         val newMillis = date.timeInMillis
-        val isSameDate = _selectedDateMillis.value == newMillis
+        val currentSelectedCal =
+            Calendar.getInstance().apply { timeInMillis = _selectedDateMillis.value }
+        val isSameDate = isSameDay(currentSelectedCal, date)
 
         _selectedDateMillis.value = newMillis
 
@@ -150,6 +187,9 @@ class AnalyticsVm @Inject constructor(
         val calendar = Calendar.getInstance().apply {
             timeInMillis = _selectedDateMillis.value
         }
+
+        val isToday =
+            isSameDay(calendar, Calendar.getInstance()) && _viewMode.value == CalendarViewMode.DAY
 
         val (start, end) = when (_viewMode.value) {
             CalendarViewMode.DAY -> {
@@ -210,7 +250,12 @@ class AnalyticsVm @Inject constructor(
                 start to calendar.timeInMillis
             }
         }
-        syncAndGetInstalledApps(start, end)
+        syncAndGetInstalledApps(start, end, isToday)
+    }
+
+    private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
+        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
     }
 
     enum class CalendarViewMode { MONTH, WEEK, DAY }

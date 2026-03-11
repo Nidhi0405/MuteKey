@@ -1,5 +1,6 @@
 package com.bbm.applock.presentation.analyticsModule.view
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -69,7 +70,9 @@ import com.bbm.applock.ui.theme.White
 
 @Composable
 fun AnalyticsScreen(vm: AnalyticsVm) {
-    val combinedHourlyUsage by vm.combinedHourlyUsage.collectAsState()
+    val todayHourlyMap by vm.todayHourlyUsageMap.collectAsState()
+    val todayHourlyData by vm.todayHourlyUsage.collectAsState()
+
     val hourlyUsageMap by vm.hourlyUsageMap.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
     val pagerState = rememberPagerState(pageCount = { 3 })
@@ -81,8 +84,23 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     val visibleMonth by vm.visibleMonth.collectAsState()
     val monthText = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(visibleMonth.time)
 
-    val labels = chartData.first
     val series = chartData.second
+
+    LaunchedEffect(selectedTab) {
+        when (selectedTab) {
+            0 -> {
+                vm.setViewMode(AnalyticsVm.CalendarViewMode.DAY)
+                vm.syncUsageForSelectedDate()
+            }
+
+            1 -> {
+                vm.setViewMode(AnalyticsVm.CalendarViewMode.MONTH)
+                vm.syncUsageForSelectedDate()
+            }
+        }
+        if (selectedTab != 1) showCalendar = false
+    }
+
 
     Column(
         modifier = Modifier
@@ -106,36 +124,25 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
         }
 
         if (selectedTab != 2) {
-            AnalyticsHeader(
-                title = headerTitle,
-                currentMonth = monthText,
-                onMonthClick = {
-                    // Toggle calendar visibility or open month picker
-                    showCalendar = !showCalendar
-                },
-                onPrevMonth = {
-                    val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                    vm.setVisibleMonth(newMonth)
-                },
-                onNextMonth = {
-                    val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                    vm.setVisibleMonth(newMonth)
-                }
-            )
+            AnalyticsHeader(title = headerTitle, currentMonth = monthText, onMonthClick = {
+                showCalendar = !showCalendar
+            }, onPrevMonth = {
+                val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
+                vm.setVisibleMonth(newMonth)
+            }, onNextMonth = {
+                val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                vm.setVisibleMonth(newMonth)
+            })
         }
 
         //Spacer(Modifier.height(16.dp))
 
         HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxSize(),
-            userScrollEnabled = false
+            state = pagerState, modifier = Modifier.fillMaxSize(), userScrollEnabled = false
         ) {
             when (it) {
                 0 -> Radar24HrScreen(
-                    hourlyData = combinedHourlyUsage,
-                    hourlyUsageMap = hourlyUsageMap
+                    hourlyData = todayHourlyData, hourlyUsageMap = todayHourlyMap
                 )
 
                 1 -> Column {
@@ -151,9 +158,7 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                 }
 
                 2 -> PerformanceTabContent(
-                    vm = vm,
-                    series = series,
-                    hourlyUsageMap = hourlyUsageMap // Ensure you're passing this data
+                    vm = vm, series = series, hourlyUsageMap = hourlyUsageMap
                 )
             }
         }
@@ -198,16 +203,14 @@ fun AnalyticsHeader(
                 color = White,
                 modifier = Modifier
                     .clickable { onPrevMonth() }
-                    .padding(horizontal = 8.dp)
-            )
+                    .padding(horizontal = 8.dp))
 
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .background(AquaBlue)
                     .clickable { onMonthClick() }
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
+                    .padding(horizontal = 16.dp, vertical = 6.dp)) {
                 Text(text = currentMonth, color = White, fontSize = 14.sp)
             }
 
@@ -217,8 +220,7 @@ fun AnalyticsHeader(
                 color = White,
                 modifier = Modifier
                     .clickable { onNextMonth() }
-                    .padding(horizontal = 8.dp)
-            )
+                    .padding(horizontal = 8.dp))
         }
     }
 }
@@ -269,12 +271,13 @@ fun TabSelector(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 fun Radar24HrScreen(
     hourlyData: List<Long>, hourlyUsageMap: Map<String, List<Long>>
 ) {
+    val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     var selectedStartHour by remember { mutableStateOf<Int?>(null) }
     var showAM by remember { mutableStateOf(true) }
+    val totalTodayMillis = hourlyData.sum()
+    val totalMinutesToday = TimeUnit.MILLISECONDS.toMinutes(totalTodayMillis)
 
-    val selectedRange = selectedStartHour?.let { start ->
-        start..((start).coerceAtMost(11))
-    }
+    val selectedRange = selectedStartHour?.let { it..it }
 
     val filteredHourlyData = if (showAM) {
         hourlyData.take(12)
@@ -286,11 +289,7 @@ fun Radar24HrScreen(
         filteredHourlyData.sum()
     } else {
         selectedRange.sumOf { localHour ->
-            val globalHour = if (showAM) {
-                localHour
-            } else {
-                localHour + 12
-            }
+            val globalHour = if (showAM) localHour % 12 else (localHour % 12) + 12
             hourlyData.getOrNull(globalHour) ?: 0L
         }
     }
@@ -358,10 +357,15 @@ fun Radar24HrScreen(
                         selectedRange = selectedRange,
                         onHourSelected = { hour ->
                             selectedStartHour = if (selectedStartHour == hour) null else hour
+                            Log.d("SELECTED_HOUR", "Radar selected hour: $selectedStartHour")
                         })
 
+
                     RadarCenterContent(
-                        totalMinutes = totalMinutes, selectedRange = selectedRange, isAM = showAM
+                        totalMinutes = totalMinutes,
+                        selectedRange = selectedRange,
+                        isAM = showAM,
+                        totalMinutesToday = totalMinutesToday
                     )
                 }
             }
@@ -480,14 +484,15 @@ fun Interactive12HrRadar(
 
 @Composable
 fun RadarCenterContent(
-    totalMinutes: Long, selectedRange: IntRange?, isAM: Boolean
+    totalMinutes: Long, selectedRange: IntRange?, isAM: Boolean, totalMinutesToday: Long? = null
 ) {
-
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
+    val displayMinutes =
+        if (selectedRange == null) totalMinutesToday ?: totalMinutes else totalMinutes
+    val hours = displayMinutes / 60
+    val minutes = displayMinutes % 60
 
     val title = if (selectedRange == null) {
-        if (isAM) "12:00 AM - 11:59 AM" else "12:00 PM - 11:59 PM"
+        "Total Today"
     } else {
         "${formatHour(selectedRange.first, isAM)} - ${
             formatHour(
@@ -503,18 +508,13 @@ fun RadarCenterContent(
             .clip(RoundedCornerShape(24.dp))
             .background(
                 Brush.radialGradient(
-                    listOf(
-                        AquaBlue, AquaBlueBorder
-                    )
+                    listOf(AquaBlue, AquaBlueBorder)
                 )
             ), contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
             Text(title, color = LightBlue, fontSize = 12.sp)
-
             Spacer(Modifier.height(6.dp))
-
             Text(
                 "$hours h $minutes m", color = White, fontWeight = FontWeight.Bold, fontSize = 20.sp
             )
@@ -539,17 +539,35 @@ fun FullAppUsageList(
     hourlyUsageMap: Map<String, List<Long>>, selectedRange: IntRange?, isAM: Boolean
 ) {
     val context = LocalContext.current
+    val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+
+    Log.d("FULL_LIST_DEBUG", "Selected Range: $selectedRange")
 
     val appUsageList = remember(hourlyUsageMap, selectedRange, isAM) {
+        val now = Calendar.getInstance()
+        val currentHour = now.get(Calendar.HOUR_OF_DAY)
         hourlyUsageMap.map { (packageName, usagePerHour) ->
+            // Inside FullAppUsageList remember block
             val totalMillis = if (selectedRange == null) {
-                usagePerHour.sum()
+                usagePerHour.takeLast(currentHour + 1).sum()
             } else {
                 selectedRange.sumOf { localHour ->
-                    val globalHour = if (isAM) localHour else localHour + 12
-                    usagePerHour.getOrNull(globalHour) ?: 0L
+                    // Convert 12h selection to 24h global index (0-23)
+                    val targetHour = if (isAM) {
+                        localHour % 12
+                    } else {
+                        (localHour % 12) + 12
+                    }
+
+                    if (targetHour <= currentHour) {
+                        usagePerHour.getOrNull(targetHour) ?: 0L
+                    } else 0L
                 }
             }
+            Log.d(
+                "FULL_LIST_DEBUG",
+                "Package: $packageName, selectedRange: $selectedRange, isAM: $isAM, totalMillis: $totalMillis, usagePerHourSize: ${usagePerHour.size}"
+            )
             packageName to totalMillis
         }.filter { it.second > 0L }.sortedByDescending { it.second }
     }
