@@ -54,6 +54,7 @@ fun UsageCalendar(
                 val firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1
                 val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
                 val totalCells = firstDayOfWeek + daysInMonth
+                val weeks = kotlin.math.ceil(totalCells / 7.0).toInt()
 
                 Column {
                     Row(
@@ -81,7 +82,7 @@ fun UsageCalendar(
                     }
                     Spacer(Modifier.height(8.dp))
 
-                    for (week in 0..5) {
+                    for (week in 0 until weeks) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
