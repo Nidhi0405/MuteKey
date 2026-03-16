@@ -29,15 +29,12 @@ fun UsageCalendar(
     val viewMode by vm.viewMode.collectAsState()
     val selectedDateMillis by vm.selectedDateMillis.collectAsState()
     var visibleCalendar by remember { mutableStateOf(Calendar.getInstance()) }
-    val visibleMonth by vm.visibleMonth.collectAsState()
 
     val selectedDate = remember(selectedDateMillis) {
         Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
     }
 
     val dayOfWeekFormat = SimpleDateFormat("EEE", Locale.getDefault())
-    val monthYearFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
-    val dayFormat = SimpleDateFormat("EEE, MMM dd", Locale.getDefault())
 
     Box(
         modifier = modifier
@@ -100,10 +97,13 @@ fun UsageCalendar(
                                             )
                                             .clickable {
                                                 val updatedDate = Calendar.getInstance().apply {
-                                                    timeInMillis = selectedDateMillis
                                                     set(Calendar.YEAR, calendar.get(Calendar.YEAR))
                                                     set(Calendar.MONTH, calendar.get(Calendar.MONTH))
                                                     set(Calendar.DAY_OF_MONTH, dayNumber)
+                                                    set(Calendar.HOUR_OF_DAY, 0)
+                                                    set(Calendar.MINUTE, 0)
+                                                    set(Calendar.SECOND, 0)
+                                                    set(Calendar.MILLISECOND, 0)
                                                 }
                                                 vm.onDateTapped(updatedDate)
                                             },
@@ -121,7 +121,7 @@ fun UsageCalendar(
                 }
             }
 
-            CalendarViewMode.WEEK -> {
+            CalendarViewMode.DAY, CalendarViewMode.WEEK -> {
                 val startOfWeek = (selectedDate.clone() as Calendar).apply {
                     set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
                 }
@@ -135,29 +135,19 @@ fun UsageCalendar(
                         dayCal.add(Calendar.DAY_OF_MONTH, i)
                         val isToday = dayCal.get(Calendar.DAY_OF_YEAR) == Calendar.getInstance()
                             .get(Calendar.DAY_OF_YEAR)
+                        val today = Calendar.getInstance()
                         val isSelected =
                             dayCal.get(Calendar.DAY_OF_YEAR) == selectedDate.get(Calendar.DAY_OF_YEAR) &&
                                     dayCal.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR)
 
+                        val circleColor = if (isSelected && viewMode == AnalyticsVm.CalendarViewMode.DAY) Red else AquaBlue
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(
-                                    when {
-                                        isSelected -> Red
-                                        isToday -> AquaBlueLight
-                                        else -> AquaBlue
-                                    }
-                                )
+                                .background(circleColor)
                                 .clickable {
-                                    if (isSelected) {
-                                        vm.setViewMode(CalendarViewMode.WEEK)
-                                        vm.syncUsageForSelectedDate()
-                                    } else {
-                                        vm.onDateTapped(dayCal)
-                                        vm.setViewMode(CalendarViewMode.DAY)
-                                    }
+                                    vm.onDateTapped(dayCal)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -176,24 +166,6 @@ fun UsageCalendar(
                             }
                         }
                     }
-                }
-            }
-
-            CalendarViewMode.DAY -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(AquaBlueLight)
-                        .clickable { vm.setViewMode(CalendarViewMode.WEEK) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = dayFormat.format(selectedDate.time),
-                        fontSize = 16.sp,
-                        color = White,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                    )
                 }
             }
         }

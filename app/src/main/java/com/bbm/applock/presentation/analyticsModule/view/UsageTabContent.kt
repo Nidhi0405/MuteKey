@@ -66,18 +66,15 @@ fun UsageTabContent(
     val topApps by vm.topAppsForUsageTab.collectAsState()
     val (hours, minutes) = vm.totalUsageTimeForUsageTab.collectAsState().value
     val selectedDateMillis by vm.selectedDateMillis.collectAsState()
-
-    val selectedDate =
-        Calendar.getInstance().apply {
-            timeInMillis = selectedDateMillis
-        }
-
     val viewMode by vm.viewMode.collectAsState()
+
+    val selectedDate = remember(selectedDateMillis) {
+        Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
+    }
 
     LaunchedEffect(selectedDate, viewMode) {
         vm.syncUsageForSelectedDate()
     }
-
 
     Box(
         modifier = modifier
@@ -111,9 +108,7 @@ fun UsageTabContent(
                 EmptyState(viewMode)
             }
 
-            if (viewMode == AnalyticsVm.CalendarViewMode.WEEK || viewMode == AnalyticsVm.CalendarViewMode.DAY) {
-                WeekDaysBar(vm = vm, modifier = Modifier.padding(horizontal = 20.dp))
-            }
+            UsageCalendar(vm = vm, modifier = Modifier.padding(horizontal = 20.dp))
         }
     }
 }
@@ -275,106 +270,6 @@ fun formatUsageTime(millis: Long): String {
     return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
-
-@Composable
-fun WeekDaysBar(
-    vm: AnalyticsVm,
-    modifier: Modifier = Modifier,
-) {
-    val selectedDateMillis by vm.selectedDateMillis.collectAsState()
-
-    val selectedDate = remember(selectedDateMillis) {
-        Calendar.getInstance().apply {
-            timeInMillis = selectedDateMillis
-        }
-    }
-
-    val daysList = (0..6).map { offset ->
-        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, offset - 6) }
-        DayInfo(
-            offsetFromToday = offset,
-            dayOfWeek = cal.get(Calendar.DAY_OF_WEEK),
-            dayOfMonth = cal.get(Calendar.DAY_OF_MONTH),
-            month = cal.get(Calendar.MONTH),
-            year = cal.get(Calendar.YEAR)
-        )
-    }
-
-    val dayCharMap = remember {
-        mapOf(
-            Calendar.SUNDAY to "S",
-            Calendar.MONDAY to "M",
-            Calendar.TUESDAY to "T",
-            Calendar.WEDNESDAY to "W",
-            Calendar.THURSDAY to "T",
-            Calendar.FRIDAY to "F",
-            Calendar.SATURDAY to "S"
-        )
-    }
-
-
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(White)
-            //.wrapContentHeight()
-            .padding(vertical = 12.dp, horizontal = 8.dp)
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            //verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            daysList.forEach { dayInfo ->
-
-                val isSelected =
-                    dayInfo.dayOfMonth == selectedDate.get(Calendar.DAY_OF_MONTH) &&
-                            dayInfo.month == selectedDate.get(Calendar.MONTH) &&
-                            dayInfo.year == selectedDate.get(Calendar.YEAR)
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-                    Text(
-                        text = dayCharMap[dayInfo.dayOfWeek] ?: "",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.W600
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(if (isSelected) Red else AquaBlue)
-                            .clickable {
-                                val tappedDate = Calendar.getInstance().apply {
-                                    set(Calendar.YEAR, dayInfo.year)
-                                    set(Calendar.MONTH, dayInfo.month)
-                                    set(Calendar.DAY_OF_MONTH, dayInfo.dayOfMonth)
-                                }
-                                if (isSelected) {
-                                    vm.syncUsageForSelectedDate() // refresh weekly usage
-                                    vm.setViewMode(AnalyticsVm.CalendarViewMode.WEEK)
-                                } else {
-                                    vm.onDateTapped(tappedDate) // select new date
-                                    vm.setViewMode(AnalyticsVm.CalendarViewMode.DAY)
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${dayInfo.dayOfMonth}",
-                            color = White,
-                            fontWeight = FontWeight.W600
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 data class DayInfo(
     val offsetFromToday: Int,
     val dayOfWeek: Int,
@@ -413,47 +308,5 @@ fun generatePieData(context: Context, apps: List<AppUsageInfo>): PieData {
 
     return PieData(dataSet).apply {
         setDrawValues(false)
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewWeekDaysBarSimple() {
-    MaterialTheme {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(LightBlue)
-        ) {
-            val selectedDate = Calendar.getInstance()
-            val daysList = (0..6).map { offset ->
-                val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, offset - 6) }
-                DayInfo(
-                    offsetFromToday = offset,
-                    dayOfWeek = cal.get(Calendar.DAY_OF_WEEK),
-                    dayOfMonth = cal.get(Calendar.DAY_OF_MONTH),
-                    month = cal.get(Calendar.MONTH),
-                    year = cal.get(Calendar.YEAR)
-                )
-            }
-
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    daysList.forEach { day ->
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .background(AquaBlue),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "${day.dayOfMonth}", color = White)
-                        }
-                    }
-                }
-            }
-        }
     }
 }

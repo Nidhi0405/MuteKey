@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -155,6 +156,7 @@ fun PerformanceTabContent(
                         vm = vm,
                         labels = dynamicLabels,
                         series = displaySeries,
+                        selectedApp = selectedApp,
                         modifier = Modifier
                             .fillMaxWidth(),
                         usageMode = usageMode
@@ -212,38 +214,51 @@ fun PerformanceTabContent(
                 else -> "${totalMinutes.toInt()} min"
             }
 
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 10.dp)
+                    .padding(vertical = 6.dp)
+                    .background(
+                        if (selectedApp == pkg)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        else
+                            Color.Transparent,
+                        RoundedCornerShape(12.dp)
+                    )
                     .noRippleClickable {
                         selectedApp = if (selectedApp == pkg) null else pkg
-                    },
-                verticalAlignment = Alignment.CenterVertically
+                    }
+                    .padding(horizontal = 8.dp, vertical = 10.dp)
             ) {
-                icon?.let {
-                    Image(
-                        bitmap = it.toBitmap().asImageBitmap(),
-                        contentDescription = appName,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    icon?.let {
+                        Image(
+                            bitmap = it.toBitmap().asImageBitmap(),
+                            contentDescription = appName,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Text(
+                        text = appName,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    Text(
+                        text = formattedTime,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary
                     )
                 }
-
-                Spacer(Modifier.width(12.dp))
-
-                Text(
-                    text = appName,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-
-                Text(
-                    text = formattedTime,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextPrimary
-                )
             }
         }
     }
@@ -365,6 +380,7 @@ fun CurvedLineChartView(
     vm: AnalyticsVm,
     labels: List<String>,
     series: List<Pair<String, List<Float>>>,
+    selectedApp: String?,
     modifier: Modifier = Modifier,
     usageMode: String
 ) {
@@ -373,12 +389,12 @@ fun CurvedLineChartView(
     AndroidView(
         factory = { ctx ->
             LineChart(ctx).apply {
-                setupLineChart(vm, this, labels, series, ctx, usageMode)
+                setupLineChart(vm, this, labels, series, ctx, usageMode, selectedApp)
                 renderer = IconLineChartRenderer(this, animator, viewPortHandler)
             }
         },
         update = { chart ->
-            setupLineChart(vm, chart, labels, series, context, usageMode)
+            setupLineChart(vm, chart, labels, series, context, usageMode, selectedApp)
             chart.invalidate()
         },
         modifier = modifier
@@ -394,7 +410,8 @@ fun setupLineChart(
     labels: List<String>,
     series: List<Pair<String, List<Float>>>,
     context: Context,
-    usageMode: String
+    usageMode: String,
+    selectedApp: String?,
 ) {
     val dataSets = ArrayList<ILineDataSet>()
 
@@ -411,6 +428,8 @@ fun setupLineChart(
         val values = triple.second
         val appName = getAppNameFromPackage(context, pkg)
         val iconDrawable = getAppIconDrawable(context, pkg)
+        val isSelected = selectedApp == pkg
+        val isDimmed = selectedApp != null && selectedApp != pkg
 
         val maxY = values.maxOrNull() ?: 1f
 
@@ -447,13 +466,19 @@ fun setupLineChart(
         }
 
         val dataSet = LineDataSet(entries, appName).apply {
-            color = vm.generateColor(index)
+            //color = vm.generateColor(index)
+            val baseColor = vm.generateColor(index)
+            color = if (isDimmed) baseColor and 0x55FFFFFF else baseColor
             lineWidth = 4f
             mode = LineDataSet.Mode.CUBIC_BEZIER
             setDrawCircles(false)
             setDrawValues(false)
             setDrawIcons(true)
             iconsOffset = MPPointF(0f, -30f)
+            if (isDimmed) {
+                setDrawFilled(false)
+                enableDashedLine(10f, 10f, 0f)
+            }
         }
 
         dataSets.add(dataSet)

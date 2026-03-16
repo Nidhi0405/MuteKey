@@ -86,6 +86,15 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
 
     val series = chartData.second
 
+    val viewMode by vm.viewMode.collectAsState()
+
+    // 🔹 Automatically hide the full month calendar when a specific Date or Week is selected
+    LaunchedEffect(viewMode) {
+        if (viewMode == AnalyticsVm.CalendarViewMode.DAY || viewMode == AnalyticsVm.CalendarViewMode.WEEK) {
+            showCalendar = false
+        }
+    }
+
     LaunchedEffect(selectedTab) {
         when (selectedTab) {
             0 -> {
