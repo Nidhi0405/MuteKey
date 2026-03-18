@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
@@ -28,144 +29,160 @@ fun UsageCalendar(
 ) {
     val viewMode by vm.viewMode.collectAsState()
     val selectedDateMillis by vm.selectedDateMillis.collectAsState()
-    var visibleCalendar by remember { mutableStateOf(Calendar.getInstance()) }
 
     val selectedDate = remember(selectedDateMillis) {
         Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
     }
-
-    val dayOfWeekFormat = SimpleDateFormat("EEE", Locale.getDefault())
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(White)
-            .padding(vertical = 12.dp, horizontal = 8.dp)
+            .padding(12.dp)
     ) {
         when (viewMode) {
+            CalendarViewMode.MONTH -> MonthView(selectedDate, vm)
+            CalendarViewMode.DAY -> WeekView(selectedDate, vm)
+            CalendarViewMode.WEEK -> MonthView(selectedDate, vm)
+        }
+    }
+}
 
-            CalendarViewMode.MONTH -> {
-                val calendar = visibleCalendar.clone() as Calendar
-                calendar.set(Calendar.DAY_OF_MONTH, 1)
-                val firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1
-                val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-                val totalCells = firstDayOfWeek + daysInMonth
-                val weeks = kotlin.math.ceil(totalCells / 7.0).toInt()
+@Composable
+private fun MonthView(
+    selectedDate: Calendar,
+    vm: AnalyticsVm
+) {
+    val visibleMonth by vm.visibleMonth.collectAsState()
+    val calendar = visibleMonth.clone() as Calendar
 
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("<", fontSize = 18.sp, modifier = Modifier.clickable {
-                            val newCal = (visibleCalendar.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                            visibleCalendar = newCal
-                            vm.setVisibleMonth(newCal)
-                        })
+    calendar.set(Calendar.DAY_OF_MONTH, 1)
 
-                        Text(
-                            text = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(visibleCalendar.time),
-                            fontSize = 16.sp,
-                            color = AquaBlue
-                        )
+    val firstDayOffset = calendar.get(Calendar.DAY_OF_WEEK) - 1
+    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+    val totalCells = firstDayOffset + daysInMonth
+    val weeks = (totalCells + 6) / 7
 
-                        Text(">", fontSize = 18.sp, modifier = Modifier.clickable {
-                            val newCal = (visibleCalendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                            visibleCalendar = newCal
-                            vm.setVisibleMonth(newCal)
-                        })
-                    }
-                    Spacer(Modifier.height(8.dp))
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("<", modifier = Modifier.clickable {
+                vm.setVisibleMonth((visibleMonth.clone() as Calendar).apply {
+                    add(Calendar.MONTH, -1)
+                })
+            })
 
-                    for (week in 0 until weeks) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            for (day in 0..6) {
-                                val cellIndex = week * 7 + day
-                                if (cellIndex >= firstDayOfWeek && cellIndex < totalCells) {
-                                    val dayNumber = cellIndex - firstDayOfWeek + 1
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (dayNumber == selectedDate.get(Calendar.DAY_OF_MONTH)) AquaBlueLight else White
-                                            )
-                                            .clickable {
-                                                val updatedDate = Calendar.getInstance().apply {
-                                                    set(Calendar.YEAR, calendar.get(Calendar.YEAR))
-                                                    set(Calendar.MONTH, calendar.get(Calendar.MONTH))
-                                                    set(Calendar.DAY_OF_MONTH, dayNumber)
-                                                    set(Calendar.HOUR_OF_DAY, 0)
-                                                    set(Calendar.MINUTE, 0)
-                                                    set(Calendar.SECOND, 0)
-                                                    set(Calendar.MILLISECOND, 0)
-                                                }
-                                                vm.onDateTapped(updatedDate)
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(text = dayNumber.toString(), fontSize = 14.sp)
-                                    }
-                                } else {
-                                    Spacer(modifier = Modifier.size(36.dp))
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(4.dp))
-                    }
-                }
-            }
+            Text(
+                SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+                    .format(visibleMonth.time),
+                color = AquaBlue
+            )
 
-            CalendarViewMode.DAY, CalendarViewMode.WEEK -> {
-                val startOfWeek = (selectedDate.clone() as Calendar).apply {
-                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
-                }
+            Text(">", modifier = Modifier.clickable {
+                vm.setVisibleMonth((visibleMonth.clone() as Calendar).apply {
+                    add(Calendar.MONTH, 1)
+                })
+            })
+        }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    for (i in 0..6) {
-                        val dayCal = startOfWeek.clone() as Calendar
-                        dayCal.add(Calendar.DAY_OF_MONTH, i)
-                        val isToday = dayCal.get(Calendar.DAY_OF_YEAR) == Calendar.getInstance()
-                            .get(Calendar.DAY_OF_YEAR)
-                        val today = Calendar.getInstance()
+        Spacer(Modifier.height(8.dp))
+
+        repeat(weeks) { week ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                repeat(7) { day ->
+                    val index = week * 7 + day
+
+                    if (index >= firstDayOffset && index < totalCells) {
+                        val dayNumber = index - firstDayOffset + 1
+
                         val isSelected =
-                            dayCal.get(Calendar.DAY_OF_YEAR) == selectedDate.get(Calendar.DAY_OF_YEAR) &&
-                                    dayCal.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR)
+                            selectedDate.get(Calendar.DAY_OF_MONTH) == dayNumber &&
+                                    selectedDate.get(Calendar.MONTH) == visibleMonth.get(Calendar.MONTH) &&
+                                    selectedDate.get(Calendar.YEAR) == visibleMonth.get(Calendar.YEAR)
 
-                        val circleColor = if (isSelected && viewMode == AnalyticsVm.CalendarViewMode.DAY) Red else AquaBlue
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(36.dp)
                                 .clip(CircleShape)
-                                .background(circleColor)
+                                .background(if (isSelected) AquaBlueLight else White)
                                 .clickable {
-                                    vm.onDateTapped(dayCal)
+                                    val date = Calendar.getInstance().apply {
+                                        set(Calendar.YEAR, visibleMonth.get(Calendar.YEAR))
+                                        set(Calendar.MONTH, visibleMonth.get(Calendar.MONTH))
+                                        set(Calendar.DAY_OF_MONTH, dayNumber)
+                                        set(Calendar.HOUR_OF_DAY, 0)
+                                        set(Calendar.MINUTE, 0)
+                                        set(Calendar.SECOND, 0)
+                                        set(Calendar.MILLISECOND, 0)
+                                    }
+
+                                    vm.onDateTapped(date)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = dayOfWeekFormat.format(dayCal.time).substring(0, 1),
-                                    fontSize = 12.sp,
-                                    color = White
-                                )
-                                Text(
-                                    text = dayCal.get(Calendar.DAY_OF_MONTH).toString(),
-                                    fontSize = 14.sp,
-                                    color = White,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                )
-                            }
+                            Text(dayNumber.toString())
                         }
+                    } else {
+                        Spacer(Modifier.size(36.dp))
                     }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+    }
+}
+
+@Composable
+private fun WeekView(
+    selectedDate: Calendar,
+    vm: AnalyticsVm
+) {
+    val startOfWeek = (selectedDate.clone() as Calendar).apply {
+        firstDayOfWeek = Calendar.MONDAY
+        set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+    }
+
+    val dayFormat = remember { SimpleDateFormat("EEE", Locale.getDefault()) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        repeat(7) { i ->
+            val day = startOfWeek.clone() as Calendar
+            day.add(Calendar.DAY_OF_MONTH, i)
+
+            val isSelected =
+                day.get(Calendar.DAY_OF_YEAR) == selectedDate.get(Calendar.DAY_OF_YEAR) &&
+                        day.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR)
+
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(if (isSelected) Red else AquaBlue)
+                    .clickable {
+                        vm.onDateTapped(day)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = dayFormat.format(day.time).take(1),
+                        fontSize = 12.sp,
+                        color = White
+                    )
+                    Text(
+                        text = day.get(Calendar.DAY_OF_MONTH).toString(),
+                        fontWeight = Bold,
+                        color = White
+                    )
                 }
             }
         }

@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -60,6 +61,10 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.bbm.applock.ui.theme.AquaBlueBorder
 import com.bbm.applock.ui.theme.AquaBlueLight
 import com.bbm.applock.ui.theme.DisableColor
@@ -88,7 +93,6 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
 
     val viewMode by vm.viewMode.collectAsState()
 
-    // 🔹 Automatically hide the full month calendar when a specific Date or Week is selected
     LaunchedEffect(viewMode) {
         if (viewMode == AnalyticsVm.CalendarViewMode.DAY || viewMode == AnalyticsVm.CalendarViewMode.WEEK) {
             showCalendar = false
@@ -156,12 +160,37 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
 
                 1 -> Column {
                     if (showCalendar) {
-                        UsageCalendar(
-                            vm = vm,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 12.dp)
-                        )
+                        Dialog(
+                            onDismissRequest = { showCalendar = false },
+                            properties = DialogProperties(
+                                usePlatformDefaultWidth = false,
+                                dismissOnClickOutside = true,
+                                dismissOnBackPress = true
+                            )
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            top = 60.dp,
+                                            start = 16.dp,
+                                            end = 16.dp
+                                        )
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(White)
+                                        .align(Alignment.TopCenter)
+                                ) {
+                                    UsageCalendar(
+                                        vm = vm,
+                                        modifier = Modifier.padding(12.dp),
+                                    )
+                                }
+                            }
+                        }
                     }
                     UsageTabContent(vm = vm)
                 }
@@ -233,6 +262,35 @@ fun AnalyticsHeader(
         }
     }
 }
+
+@Composable
+fun CalendarTopFullWidthDialog(
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Popup(
+        alignment = Alignment.TopCenter,
+        onDismissRequest = onDismissRequest,
+        properties = PopupProperties(
+            focusable = true,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            clippingEnabled = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(White)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                .shadow(8.dp)
+        ) {
+            content()
+        }
+    }
+}
+
 
 @Composable
 fun TabSelector(selectedTab: Int, onTabSelected: (Int) -> Unit) {
@@ -553,32 +611,19 @@ fun FullAppUsageList(
     Log.d("FULL_LIST_DEBUG", "Selected Range: $selectedRange")
 
     val appUsageList = remember(hourlyUsageMap, selectedRange, isAM) {
-        val now = Calendar.getInstance()
-        val currentHour = now.get(Calendar.HOUR_OF_DAY)
         hourlyUsageMap.map { (packageName, usagePerHour) ->
-            // Inside FullAppUsageList remember block
             val totalMillis = if (selectedRange == null) {
-                usagePerHour.takeLast(currentHour + 1).sum()
+                usagePerHour.take(24).sum()
             } else {
                 selectedRange.sumOf { localHour ->
-                    // Convert 12h selection to 24h global index (0-23)
-                    val targetHour = if (isAM) {
-                        localHour % 12
-                    } else {
-                        (localHour % 12) + 12
-                    }
-
-                    if (targetHour <= currentHour) {
-                        usagePerHour.getOrNull(targetHour) ?: 0L
-                    } else 0L
+                    val targetHour = if (isAM) localHour % 12 else (localHour % 12) + 12
+                    usagePerHour.getOrNull(targetHour) ?: 0L
                 }
             }
-            Log.d(
-                "FULL_LIST_DEBUG",
-                "Package: $packageName, selectedRange: $selectedRange, isAM: $isAM, totalMillis: $totalMillis, usagePerHourSize: ${usagePerHour.size}"
-            )
             packageName to totalMillis
-        }.filter { it.second > 0L }.sortedByDescending { it.second }
+        }
+            .filter { it.second > 0L }
+            .sortedByDescending { it.second }
     }
 
     if (appUsageList.isEmpty()) {

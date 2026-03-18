@@ -79,7 +79,6 @@ class AnalyticsVm @Inject constructor(
             val combined = MutableList(24) { 0L }
             hourlyMap.values.forEach { appList ->
                 appList.forEachIndexed { index, millis ->
-                    // FIX: Use modulo 24 to aggregate multiple days into 24 buckets
                     val hourOfDay = index % 24
                     combined[hourOfDay] += millis
                 }
@@ -138,7 +137,7 @@ class AnalyticsVm @Inject constructor(
 
         viewModelScope.launch(dispatchers.io) {
             val hourlyMap = getHourlyUsageMapUseCase.invoke(start, end)
-            _todayHourlyUsageMap.value = hourlyMap // 🔹 Correct way to update
+            _todayHourlyUsageMap.value = hourlyMap
         }
     }
 
@@ -182,7 +181,6 @@ class AnalyticsVm @Inject constructor(
 
         syncUsageForSelectedDate()
     }
-
     fun syncUsageForSelectedDate() {
         val calendar = Calendar.getInstance().apply {
             timeInMillis = _selectedDateMillis.value
@@ -503,7 +501,6 @@ class AnalyticsVm @Inject constructor(
         val calendar = Calendar.getInstance()
 
         stats.forEach { stat ->
-            // Round timestamp to start of day (midnight)
             calendar.timeInMillis = stat.firstTimeStamp
             calendar.set(Calendar.HOUR_OF_DAY, 0)
             calendar.set(Calendar.MINUTE, 0)
@@ -558,7 +555,6 @@ class AnalyticsVm @Inject constructor(
 
         return weeklyMap
     }
-
 
     fun generateColor(index: Int): Int {
         val hue = (index * 47f) % 360f
