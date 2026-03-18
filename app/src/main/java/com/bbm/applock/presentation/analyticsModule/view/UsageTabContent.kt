@@ -107,8 +107,6 @@ fun UsageTabContent(
             } else {
                 EmptyState(viewMode)
             }
-
-            UsageCalendar(vm = vm, modifier = Modifier.padding(horizontal = 20.dp))
         }
     }
 }
