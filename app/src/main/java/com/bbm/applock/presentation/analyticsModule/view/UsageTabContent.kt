@@ -40,7 +40,8 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import coil3.compose.AsyncImage
 import com.applock.domain.model.AppUsageInfo
-import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
+import com.bbm.applock.presentation.analyticsModule.uiState.CalendarViewMode
+import com.bbm.applock.presentation.analyticsModule.uiState.UsageUiState
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.LightBlue
 import com.bbm.applock.ui.theme.Red
@@ -59,21 +60,12 @@ import java.util.Locale
 
 @Composable
 fun UsageTabContent(
-    vm: AnalyticsVm,
+    state: UsageUiState,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val apps by vm.installedApps.collectAsState()
-    val topApps by vm.topAppsForUsageTab.collectAsState()
-    val (hours, minutes) = vm.totalUsageTimeForUsageTab.collectAsState().value
-    val selectedDateMillis by vm.selectedDateMillis.collectAsState()
-    val viewMode by vm.viewMode.collectAsState()
-
-    val selectedDate = remember(selectedDateMillis) {
-        Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
-    }
-
-    LaunchedEffect(selectedDate, viewMode) {
-        vm.syncUsageForSelectedDate()
+    val selectedDate = remember(state.selectedDateMillis) {
+        Calendar.getInstance().apply { timeInMillis = state.selectedDateMillis }
     }
 
     Box(
@@ -85,41 +77,32 @@ fun UsageTabContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             UsageSummaryCard(
-                topApps = topApps,
-                hours = hours,
-                minutes = minutes,
+                topApps = state.chartApps,
+                hours = state.totalHours,
+                minutes = state.totalMinutes,
+                selectedDate = selectedDate,
+                viewMode = state.viewMode,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                selectedDate = selectedDate,
-                viewMode = viewMode
+                    .padding(horizontal = 20.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (apps.isNotEmpty()) {
+            if (state.appUsageList.isNotEmpty()) {
                 AppUsageList(
-                    topApps = apps
-                        .filter { it.usageTimeInMillis > 0L }
-                        .sortedByDescending { it.usageTimeInMillis },
+                    topApps = state.appUsageList,
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
             } else {
-                EmptyState(viewMode)
+                EmptyState(state.emptyMessage)
             }
         }
     }
 }
 
 @Composable
-fun EmptyState(viewMode: AnalyticsVm.CalendarViewMode) {
-
-    val message = when (viewMode) {
-        AnalyticsVm.CalendarViewMode.DAY -> "No usage data for selected day."
-        AnalyticsVm.CalendarViewMode.WEEK -> "No usage data for selected week."
-        AnalyticsVm.CalendarViewMode.MONTH -> "No usage data for selected month."
-    }
-
+fun EmptyState(message: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -140,7 +123,7 @@ fun UsageSummaryCard(
     minutes: Long,
     modifier: Modifier = Modifier,
     selectedDate: Calendar,
-    viewMode: AnalyticsVm.CalendarViewMode
+    viewMode: CalendarViewMode
 ) {
     Box(
         modifier = modifier
@@ -205,9 +188,9 @@ fun UsageSummaryCard(
 
                 Text(
                     text = when (viewMode) {
-                        AnalyticsVm.CalendarViewMode.MONTH -> "This Month"
-                        AnalyticsVm.CalendarViewMode.DAY -> "${formatDate(selectedDate)}"
-                        AnalyticsVm.CalendarViewMode.WEEK -> "This Week"
+                        CalendarViewMode.MONTH -> "This Month"
+                        CalendarViewMode.DAY -> "${formatDate(selectedDate)}"
+                        CalendarViewMode.WEEK -> "This Week"
                     },
                     fontSize = 14.sp,
                     color = TextPrimary

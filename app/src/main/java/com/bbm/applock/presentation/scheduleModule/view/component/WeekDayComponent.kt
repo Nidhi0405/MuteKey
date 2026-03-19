@@ -1,5 +1,6 @@
 package com.bbm.applock.presentation.scheduleModule.view.component
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -30,6 +32,7 @@ import com.bbm.applock.ui.theme.LightBlue
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.util.dateFormatter
 import com.bbm.applock.util.noRippleClickable
+import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.WeekDay
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -41,15 +44,24 @@ fun WeekDayComponent(
     cellWidth: Dp,
     selectedDay: LocalDate,
     currentDate: LocalDate,
+    firstDataDate: LocalDate,
     shouldShowIndicator: Boolean = false,
     onSelectedDayChanged: (LocalDate) -> Unit
 ) {
+    val isFutureDate = day.date.isAfter(currentDate)
+    val isSelectable = !isFutureDate && !day.date.isBefore(firstDataDate)
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier
             .width(cellWidth)
             .padding(horizontal = 4.dp)
-            .noRippleClickable {
-                onSelectedDayChanged.invoke(day.date)
+            .noRippleClickable () {
+                if(isSelectable) {
+                    onSelectedDayChanged.invoke(day.date)
+                } else {
+                    Toast.makeText(context, "No data available for this date", Toast.LENGTH_SHORT).show()
+                }
             }
             .clip(RoundedCornerShape(12.dp))
             .background(

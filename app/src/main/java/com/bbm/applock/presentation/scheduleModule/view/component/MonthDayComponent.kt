@@ -1,5 +1,6 @@
 package com.bbm.applock.presentation.scheduleModule.view.component
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -31,6 +33,7 @@ import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.WhiteColor
 import com.bbm.applock.util.noRippleClickable
 import com.kizitonwose.calendar.core.CalendarDay
+import com.kizitonwose.calendar.core.DayPosition
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -43,9 +46,17 @@ fun MonthDayComponent(
     cellWidth: Dp,
     selectedDay: LocalDate,
     currentDate: LocalDate,
+    firstDataDate: LocalDate,
     shouldShowIndicator: Boolean = false,
     onSelectedDayChanged: (LocalDate) -> Unit
 ) {
+
+    val isCurrentMonth = day.position == DayPosition.MonthDate
+    val isFutureDate = day.date.isAfter(currentDate)
+    val isSelected = selectedDay == day.date && !isFutureDate
+    val isSelectable = !isFutureDate && !day.date.isBefore(firstDataDate)
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier
             .width(cellWidth)
@@ -61,19 +72,33 @@ fun MonthDayComponent(
                 shape = RoundedCornerShape(12.dp)
             )
             .noRippleClickable {
-                onSelectedDayChanged.invoke(day.date)
+                if (isSelectable) {
+                    onSelectedDayChanged(day.date)
+                } else {
+                    Toast.makeText(context, "No data available for this date", Toast.LENGTH_SHORT)
+                        .show()
+                }
             }
             .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        val color = if (selectedDay == day.date) WhiteColor else TextPrimary
+        val backgroundColor = when {
+            isSelected -> AquaBlueBorder
+            else -> LightBlue
+        }
+
+        val textColor = when {
+            isSelected -> WhiteColor
+            isCurrentMonth -> TextPrimary
+            else -> TextPrimary.copy(alpha = 0.3f)
+        }
         Text(
             text = day.date.dayOfMonth.toString(),
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.W400,
                 fontSize = 14.sp,
-                color = color
+                color = textColor
             ),
             textAlign = TextAlign.Center,
         )
@@ -83,7 +108,7 @@ fun MonthDayComponent(
                 modifier = Modifier
                     .size(4.dp)
                     .clip(CircleShape)
-                    .background(color)
+                    .background(backgroundColor)
             )
     }
 }

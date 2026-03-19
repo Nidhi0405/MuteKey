@@ -52,6 +52,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -65,6 +66,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.bbm.applock.presentation.analyticsModule.uiState.CalendarUiState
+import com.bbm.applock.presentation.analyticsModule.vm.toUi
 import com.bbm.applock.ui.theme.AquaBlueBorder
 import com.bbm.applock.ui.theme.AquaBlueLight
 import com.bbm.applock.ui.theme.DisableColor
@@ -72,11 +75,13 @@ import com.bbm.applock.ui.theme.LightBlue
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.ui.theme.White
+import java.time.ZoneId
 
 @Composable
 fun AnalyticsScreen(vm: AnalyticsVm) {
     val todayHourlyMap by vm.todayHourlyUsageMap.collectAsState()
     val todayHourlyData by vm.todayHourlyUsage.collectAsState()
+    val usageUiState by vm.uiState.collectAsState()
 
     val hourlyUsageMap by vm.hourlyUsageMap.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -92,6 +97,12 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     val series = chartData.second
 
     val viewMode by vm.viewMode.collectAsState()
+    val selectedDateMillis by vm.selectedDateMillis.collectAsState()
+    val context = LocalContext.current
+    val firstDataCalendar = remember {
+        vm.getStartDate(context)
+    }
+    val firstDataDate = firstDataCalendar.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
 
     LaunchedEffect(viewMode) {
         if (viewMode == AnalyticsVm.CalendarViewMode.DAY || viewMode == AnalyticsVm.CalendarViewMode.WEEK) {
@@ -185,14 +196,34 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                                         .align(Alignment.TopCenter)
                                 ) {
                                     UsageCalendar(
-                                        vm = vm,
-                                        modifier = Modifier.padding(12.dp),
+                                        firstDataDate = firstDataDate,
+                                        state = CalendarUiState(
+                                            selectedDateMillis = selectedDateMillis,
+                                            viewMode = viewMode.toUi(),
+                                            visibleMonth = visibleMonth
+                                        ),
+                                        onEvent = { event ->
+                                            when (event) {
+                                                is AnalyticsEvent.OnDateSelected -> vm.onDateTapped(event.date)
+                                                AnalyticsEvent.OnPrevMonth -> vm.setVisibleMonth(
+                                                    (vm.visibleMonth.value.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
+                                                )
+                                                AnalyticsEvent.OnNextMonth -> vm.setVisibleMonth(
+                                                    (vm.visibleMonth.value.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                                                )
+                                                is AnalyticsEvent.OnViewModeChanged -> vm.setViewMode(event.viewMode)
+                                            }
+                                        },
+                                        modifier = Modifier.padding(12.dp)
                                     )
                                 }
                             }
                         }
                     }
-                    UsageTabContent(vm = vm)
+                    UsageTabContent(
+                        state = usageUiState,
+                        onRefresh = { vm.syncUsageForSelectedDate() }
+                    )
                 }
 
                 2 -> PerformanceTabContent(

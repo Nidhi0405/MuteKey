@@ -12,6 +12,8 @@ import com.applock.domain.usecase.GetHourlyUsageMapUseCase
 import com.applock.domain.usecase.SyncInstalledAppsUseCase
 import com.bbm.applock.dispatcher.CoroutineDispatcherProvider
 import com.bbm.applock.presentation.UiState
+import com.bbm.applock.presentation.analyticsModule.uiState.CalendarViewMode
+import com.bbm.applock.presentation.analyticsModule.uiState.UsageUiState
 import com.bbm.applock.presentation.base.BaseVM
 import com.bbm.applock.util.aggregateHourlyToDays
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,6 +31,15 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.math.ceil
+
+fun AnalyticsVm.CalendarViewMode.toUi(): CalendarViewMode {
+    return when (this) {
+        AnalyticsVm.CalendarViewMode.DAY -> CalendarViewMode.DAY
+        AnalyticsVm.CalendarViewMode.WEEK -> CalendarViewMode.WEEK
+        AnalyticsVm.CalendarViewMode.MONTH -> CalendarViewMode.MONTH
+    }
+}
+
 
 @HiltViewModel
 class AnalyticsVm @Inject constructor(
@@ -124,6 +135,42 @@ class AnalyticsVm @Inject constructor(
             syncUsageForSelectedDate()
         }
     }
+
+    val uiState: StateFlow<UsageUiState> = combine(
+        installedApps,
+        topAppsForUsageTab,
+        totalUsageTimeForUsageTab,
+        selectedDateMillis,
+        viewMode
+    ) { apps, topApps, totalTime, dateMillis, mode ->
+
+        val (hours, minutes) = totalTime
+
+        val filteredApps = apps
+            .filter { it.usageTimeInMillis > 0L }
+            .sortedByDescending { it.usageTimeInMillis }
+
+        val emptyMessage = when (mode) {
+            CalendarViewMode.DAY -> "No usage data for selected day."
+            CalendarViewMode.WEEK -> "No usage data for selected week."
+            CalendarViewMode.MONTH -> "No usage data for selected month."
+        }
+
+        UsageUiState(
+            appUsageList = filteredApps,     // ✅ already processed
+            chartApps = topApps,             // ✅ for pie chart
+            totalHours = hours,
+            totalMinutes = minutes,
+            selectedDateMillis = dateMillis,
+            viewMode = (mode as AnalyticsVm.CalendarViewMode).toUi(),          // ✅ mapped (see below)
+            emptyMessage = emptyMessage
+        )
+    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = UsageUiState()
+        )
 
     fun syncTodayHourlyUsage() {
         val calendar = Calendar.getInstance().apply {
