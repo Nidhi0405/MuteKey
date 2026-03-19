@@ -210,24 +210,19 @@ class AnalyticsVm @Inject constructor(
 
     fun onDateTapped(date: Calendar) {
         val newMillis = date.timeInMillis
-        val currentSelectedCal =
-            Calendar.getInstance().apply { timeInMillis = _selectedDateMillis.value }
+        val currentSelectedCal = Calendar.getInstance().apply {
+            timeInMillis = _selectedDateMillis.value
+        }
         val isSameDate = isSameDay(currentSelectedCal, date)
-
         _selectedDateMillis.value = newMillis
-
         _viewMode.value = if (isSameDate) {
-            when (_viewMode.value) {
-                CalendarViewMode.DAY -> CalendarViewMode.WEEK
-                CalendarViewMode.WEEK -> CalendarViewMode.DAY
-                else -> CalendarViewMode.DAY
-            }
+            CalendarViewMode.WEEK
         } else {
             CalendarViewMode.DAY
         }
-
         syncUsageForSelectedDate()
     }
+
     fun syncUsageForSelectedDate() {
         val calendar = Calendar.getInstance().apply {
             timeInMillis = _selectedDateMillis.value

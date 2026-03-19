@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.compose.foundation)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -101,5 +102,6 @@ dependencies {
 
     implementation("androidx.lifecycle:lifecycle-process:2.9.1") // Or the latest version
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.1") // For lifecycleScope
-
+    implementation ("androidx.compose.material3:material3:1.2.0") // your M3 version
+    implementation ("androidx.compose.material:material-icons-extended:1.5.0") // required for extended icons
 }

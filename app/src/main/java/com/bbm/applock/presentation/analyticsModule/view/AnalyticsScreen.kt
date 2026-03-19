@@ -52,7 +52,12 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -104,8 +109,8 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     }
     val firstDataDate = firstDataCalendar.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
 
-    LaunchedEffect(viewMode) {
-        if (viewMode == AnalyticsVm.CalendarViewMode.DAY || viewMode == AnalyticsVm.CalendarViewMode.WEEK) {
+    LaunchedEffect(selectedTab, viewMode) {
+        if (selectedTab != 1 || viewMode != AnalyticsVm.CalendarViewMode.MONTH) {
             showCalendar = false
         }
     }
@@ -122,9 +127,7 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                 vm.syncUsageForSelectedDate()
             }
         }
-        if (selectedTab != 1) showCalendar = false
     }
-
 
     Column(
         modifier = Modifier
@@ -149,7 +152,10 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
 
         if (selectedTab != 2) {
             AnalyticsHeader(title = headerTitle, currentMonth = monthText, onMonthClick = {
-                showCalendar = !showCalendar
+                if (selectedTab == 1) {
+                    vm.setViewMode(AnalyticsVm.CalendarViewMode.MONTH)
+                    showCalendar = !showCalendar
+                }
             }, onPrevMonth = {
                 val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
                 vm.setVisibleMonth(newMonth)
@@ -162,64 +168,49 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
         //Spacer(Modifier.height(16.dp))
 
         HorizontalPager(
-            state = pagerState, modifier = Modifier.fillMaxSize(), userScrollEnabled = false
+            state = pagerState, modifier = Modifier.weight(1f), userScrollEnabled = false
         ) {
             when (it) {
                 0 -> Radar24HrScreen(
                     hourlyData = todayHourlyData, hourlyUsageMap = todayHourlyMap
                 )
 
-                1 -> Column {
+                1 -> Column (
+                    modifier = Modifier.fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ){
+                    Log.d("CALENDAR_STATE", "showCalendar=$showCalendar tab=$selectedTab mode=$viewMode")
                     if (showCalendar) {
-                        Dialog(
-                            onDismissRequest = { showCalendar = false },
-                            properties = DialogProperties(
-                                usePlatformDefaultWidth = false,
-                                dismissOnClickOutside = true,
-                                dismissOnBackPress = true
-                            )
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(
-                                            top = 60.dp,
-                                            start = 16.dp,
-                                            end = 16.dp
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .padding(top = 10.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            color = White,
+                        ){
+                            UsageCalendar(
+                                firstDataDate = firstDataDate,
+                                state = CalendarUiState(
+                                    selectedDateMillis = selectedDateMillis,
+                                    viewMode = viewMode.toUi(),
+                                    visibleMonth = visibleMonth
+                                ),
+                                onEvent = { event ->
+                                    when (event) {
+                                        is AnalyticsEvent.OnDateSelected -> vm.onDateTapped(event.date)
+                                        AnalyticsEvent.OnPrevMonth -> vm.setVisibleMonth(
+                                            (vm.visibleMonth.value.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
                                         )
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(White)
-                                        .align(Alignment.TopCenter)
-                                ) {
-                                    UsageCalendar(
-                                        firstDataDate = firstDataDate,
-                                        state = CalendarUiState(
-                                            selectedDateMillis = selectedDateMillis,
-                                            viewMode = viewMode.toUi(),
-                                            visibleMonth = visibleMonth
-                                        ),
-                                        onEvent = { event ->
-                                            when (event) {
-                                                is AnalyticsEvent.OnDateSelected -> vm.onDateTapped(event.date)
-                                                AnalyticsEvent.OnPrevMonth -> vm.setVisibleMonth(
-                                                    (vm.visibleMonth.value.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                                                )
-                                                AnalyticsEvent.OnNextMonth -> vm.setVisibleMonth(
-                                                    (vm.visibleMonth.value.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                                                )
-                                                is AnalyticsEvent.OnViewModeChanged -> vm.setViewMode(event.viewMode)
-                                            }
-                                        },
-                                        modifier = Modifier.padding(12.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                                        AnalyticsEvent.OnNextMonth -> vm.setVisibleMonth(
+                                            (vm.visibleMonth.value.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                                        )
+                                        is AnalyticsEvent.OnViewModeChanged -> vm.setViewMode(event.viewMode)
+                                    }
+                                },
+                            )
+                        }}
+
                     UsageTabContent(
                         state = usageUiState,
                         onRefresh = { vm.syncUsageForSelectedDate() }
