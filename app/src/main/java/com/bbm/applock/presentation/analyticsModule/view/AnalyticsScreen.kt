@@ -52,11 +52,8 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.shadow
@@ -67,8 +64,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.bbm.applock.presentation.analyticsModule.uiState.CalendarUiState
@@ -175,41 +170,57 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                     hourlyData = todayHourlyData, hourlyUsageMap = todayHourlyMap
                 )
 
-                1 -> Column (
-                    modifier = Modifier.fillMaxSize()
+                1 -> Column(
+                    modifier = Modifier
+                        .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                ){
-                    Log.d("CALENDAR_STATE", "showCalendar=$showCalendar tab=$selectedTab mode=$viewMode")
-                    if (showCalendar) {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
-                                .padding(top = 10.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            color = White,
-                        ){
-                            UsageCalendar(
-                                firstDataDate = firstDataDate,
-                                state = CalendarUiState(
-                                    selectedDateMillis = selectedDateMillis,
-                                    viewMode = viewMode.toUi(),
-                                    visibleMonth = visibleMonth
-                                ),
-                                onEvent = { event ->
-                                    when (event) {
-                                        is AnalyticsEvent.OnDateSelected -> vm.onDateTapped(event.date)
-                                        AnalyticsEvent.OnPrevMonth -> vm.setVisibleMonth(
-                                            (vm.visibleMonth.value.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                                        )
-                                        AnalyticsEvent.OnNextMonth -> vm.setVisibleMonth(
-                                            (vm.visibleMonth.value.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                                        )
-                                        is AnalyticsEvent.OnViewModeChanged -> vm.setViewMode(event.viewMode)
-                                    }
-                                },
-                            )
-                        }}
+                ) {
+                    Log.d(
+                        "CALENDAR_STATE",
+                        "showCalendar=$showCalendar tab=$selectedTab mode=$viewMode"
+                    )
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 10.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = White,
+                    ) {
+                        UsageCalendar(
+                            state = CalendarUiState(
+                                selectedDateMillis = selectedDateMillis,
+                                viewMode = viewMode.toUi(),
+                                visibleMonth = visibleMonth
+                            ),
+                            firstDataDate = firstDataDate,
+                            onEvent = { event ->
+                                when (event) {
+                                    is AnalyticsEvent.OnDateSelected -> vm.onDateTapped(event.date)
+                                    AnalyticsEvent.OnPrevMonth -> vm.setVisibleMonth(
+                                        (vm.visibleMonth.value.clone() as Calendar).apply {
+                                            add(
+                                                Calendar.MONTH,
+                                                -1
+                                            )
+                                        }
+                                    )
+
+                                    AnalyticsEvent.OnNextMonth -> vm.setVisibleMonth(
+                                        (vm.visibleMonth.value.clone() as Calendar).apply {
+                                            add(
+                                                Calendar.MONTH,
+                                                1
+                                            )
+                                        }
+                                    )
+
+                                    is AnalyticsEvent.OnViewModeChanged -> vm.setViewMode(event.viewMode)
+                                }
+                            },
+                        )
+                    }
 
                     UsageTabContent(
                         state = usageUiState,
@@ -365,6 +376,7 @@ fun Radar24HrScreen(
     var showAM by remember { mutableStateOf(true) }
     val totalTodayMillis = hourlyData.sum()
     val totalMinutesToday = TimeUnit.MILLISECONDS.toMinutes(totalTodayMillis)
+    val today = remember { java.time.LocalDate.now() }
 
     val selectedRange = selectedStartHour?.let { it..it }
 
