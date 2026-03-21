@@ -56,6 +56,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -84,8 +85,9 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     val usageUiState by vm.uiState.collectAsState()
 
     val hourlyUsageMap by vm.hourlyUsageMap.collectAsState()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    //var selectedTab by remember { mutableIntStateOf(0) }
     val pagerState = rememberPagerState(pageCount = { 3 })
+    val selectedTab = pagerState.currentPage
     val coroutineScope = rememberCoroutineScope()
     var showCalendar by remember { mutableStateOf(false) }
     val chartData by vm.parsedChartData.collectAsState(
@@ -131,7 +133,6 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
             .padding(top = 16.dp)
     ) {
         TabSelector(selectedTab) {
-            selectedTab = it
             coroutineScope.launch {
                 pagerState.scrollToPage(it)
             }
@@ -165,6 +166,7 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
         HorizontalPager(
             state = pagerState, modifier = Modifier.weight(1f), userScrollEnabled = false
         ) {
+            key(it){
             when (it) {
                 0 -> Radar24HrScreen(
                     hourlyData = todayHourlyData, hourlyUsageMap = todayHourlyMap
@@ -231,7 +233,7 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                 2 -> PerformanceTabContent(
                     vm = vm, series = series, hourlyUsageMap = hourlyUsageMap
                 )
-            }
+            }}
         }
     }
 
