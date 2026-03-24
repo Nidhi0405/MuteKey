@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -39,7 +40,6 @@ fun AnalyticsVm.CalendarViewMode.toUi(): CalendarViewMode {
         AnalyticsVm.CalendarViewMode.MONTH -> CalendarViewMode.MONTH
     }
 }
-
 
 @HiltViewModel
 class AnalyticsVm @Inject constructor(
@@ -57,6 +57,13 @@ class AnalyticsVm @Inject constructor(
 
     private val _hourlyUsageRawMap = MutableStateFlow<Map<String, List<Long>>>(emptyMap())
     val hourlyUsageMap: StateFlow<Map<String, List<Long>>> = _hourlyUsageRawMap
+
+    // Define the MutableStateFlow for loading state
+    private val _isLoading = MutableStateFlow(false)
+
+    // Expose the loading state as a public read-only StateFlow
+    val isLoading: StateFlow<Boolean> = _isLoading
+
 
     val topAppsForUsageTab: StateFlow<List<AppUsageInfo>> = installedApps
         .combine(_hourlyUsageRawMap) { apps, _ ->
@@ -117,8 +124,29 @@ class AnalyticsVm @Inject constructor(
     private val _viewMode = MutableStateFlow(CalendarViewMode.MONTH)
     val viewMode: StateFlow<CalendarViewMode> = _viewMode
 
-    private val _selectedDateMillis = MutableStateFlow(System.currentTimeMillis())
-    val selectedDateMillis: StateFlow<Long> = _selectedDateMillis
+    private val _radarSelectedDateMillis = MutableStateFlow(System.currentTimeMillis())
+    val radarSelectedDateMillis: StateFlow<Long> = _radarSelectedDateMillis
+
+    private val _usageSelectedDateMillis = MutableStateFlow(System.currentTimeMillis())
+    val usageSelectedDateMillis: StateFlow<Long> = _usageSelectedDateMillis
+
+    // Function to update the radar selected date
+    fun setRadarSelectedDate(millis: Long) {
+        _radarSelectedDateMillis.value = millis
+        syncRadarForSelectedDate() // This could refresh the usage data if needed
+    }
+
+    // Function to update the usage selected date
+    fun setUsageSelectedDate(millis: Long) {
+        _usageSelectedDateMillis.value = millis
+        syncUsageForSelectedDate() // Sync usage data based on new date
+    }
+
+    private val _selectedRadarData = MutableStateFlow<List<Long>?>(null)
+    val selectedRadarData: StateFlow<List<Long>?> = _selectedRadarData
+
+    private val _selectedRadarMap = MutableStateFlow<Map<String, List<Long>>?>(null)
+    val selectedRadarMap: StateFlow<Map<String, List<Long>>?> = _selectedRadarMap
 
     fun setVisibleMonth(calendar: Calendar) {
         _visibleMonth.value = calendar
@@ -140,7 +168,7 @@ class AnalyticsVm @Inject constructor(
         installedApps,
         topAppsForUsageTab,
         totalUsageTimeForUsageTab,
-        selectedDateMillis,
+        usageSelectedDateMillis,
         viewMode
     ) { apps, topApps, totalTime, dateMillis, mode ->
 
@@ -204,17 +232,32 @@ class AnalyticsVm @Inject constructor(
             } catch (e: Exception) {
                 _state.emit(UiState.Failure(e, "Error syncing apps: ${e.message}"))
                 Log.e("AnalyticsVm", "Error syncing installed apps: ${e.message}", e)
+            } finally {
+                _isLoading.value = false
             }
         }
     }
 
-    fun onDateTapped(date: Calendar) {
+    fun onRadarDateTapped(date: Calendar) {
         val newMillis = date.timeInMillis
         val currentSelectedCal = Calendar.getInstance().apply {
-            timeInMillis = _selectedDateMillis.value
+            timeInMillis = _radarSelectedDateMillis.value
         }
         val isSameDate = isSameDay(currentSelectedCal, date)
-        _selectedDateMillis.value = newMillis
+        _radarSelectedDateMillis.value = newMillis
+        _viewMode.value = CalendarViewMode.DAY
+
+        Log.d("VM", "Radar date updated: $date")
+        syncRadarForSelectedDate()
+    }
+
+    fun onUsageDateTapped(date: Calendar) {
+        val newMillis = date.timeInMillis
+        val currentSelectedCal = Calendar.getInstance().apply {
+            timeInMillis = _usageSelectedDateMillis.value
+        }
+        val isSameDate = isSameDay(currentSelectedCal, date)
+        _usageSelectedDateMillis.value = newMillis
         _viewMode.value = if (isSameDate) {
             CalendarViewMode.WEEK
         } else {
@@ -225,7 +268,77 @@ class AnalyticsVm @Inject constructor(
 
     fun syncUsageForSelectedDate() {
         val calendar = Calendar.getInstance().apply {
-            timeInMillis = _selectedDateMillis.value
+            timeInMillis = _usageSelectedDateMillis.value
+        }
+
+        val isToday =
+            isSameDay(calendar, Calendar.getInstance()) && _viewMode.value == CalendarViewMode.DAY
+
+        val (start, end) = when (_viewMode.value) {
+            CalendarViewMode.DAY -> {
+                calendar.apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val start = calendar.timeInMillis
+
+                calendar.apply {
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+                start to calendar.timeInMillis
+            }
+
+            CalendarViewMode.WEEK -> {
+                calendar.apply {
+                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val start = calendar.timeInMillis
+
+                calendar.apply {
+                    add(Calendar.DAY_OF_WEEK, 6)
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+                start to calendar.timeInMillis
+            }
+
+            CalendarViewMode.MONTH -> {
+                calendar.apply {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val start = calendar.timeInMillis
+
+                calendar.apply {
+                    set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+                start to calendar.timeInMillis
+            }
+        }
+        syncAndGetInstalledApps(start, end, isToday)
+    }
+
+    fun syncRadarForSelectedDate() {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = _radarSelectedDateMillis.value
         }
 
         val isToday =
@@ -407,18 +520,29 @@ class AnalyticsVm @Inject constructor(
 
         when (usageMode) {
             "Daily" -> {
-                val totalHours = 24
-                val maxLabels = 8
-                val step = ceil(totalHours.toFloat() / maxLabels).toInt()
+                // Generate last 7 days including today
+                val dailyUsageMap = getAllDailyUsage(context) // Map<String, Map<Long, Long>>
+                val today = Calendar.getInstance()
+                val last7DaysTimestamps = (0..6).map {
+                    val cal = today.clone() as Calendar
+                    cal.add(Calendar.DAY_OF_YEAR, -it)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    cal.timeInMillis
+                }.reversed() // oldest first
 
-                labels = (0 until totalHours step step).map { "${it}h" } + "24h"
+                // Labels for chart
+                val dateFormat = SimpleDateFormat("dd MMM", Locale.getDefault()) // Mon, Tue, etc.
+                labels = last7DaysTimestamps.map { ts -> dateFormat.format(Date(ts)) }
 
-                series = hourlyUsageMap.map { (pkg, hourlyList) ->
-                    val sampledValues = (0 until totalHours step step).map { idx ->
-                        hourlyList.getOrElse(idx) { 0L } / 60000f
+                // Align each app’s usage to these 7 days
+                series = dailyUsageMap.map { (pkg, usageMap) ->
+                    val values = last7DaysTimestamps.map { dayTs ->
+                        (usageMap[dayTs] ?: 0L) / 60000f // convert ms -> minutes
                     }
-                    val lastValue = hourlyList.getOrElse(totalHours - 1) { 0L } / 60000f
-                    pkg to (sampledValues + lastValue)
+                    pkg to values
                 }
             }
 

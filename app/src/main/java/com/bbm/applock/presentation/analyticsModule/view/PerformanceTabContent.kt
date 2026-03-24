@@ -86,6 +86,9 @@ fun PerformanceTabContent(
         filteredSeries = series
 
         headerText = when (usageMode) {
+            "Daily" -> {
+                "Last 7 Days"
+            }
             "Weekly" -> {
                 val totalWeeks = labels.size
                 "Last $totalWeeks weeks"
@@ -96,7 +99,7 @@ fun PerformanceTabContent(
                 "Last $totalMonths months"
             }
 
-            else -> "Today"
+            else -> ""
         }
     }
 

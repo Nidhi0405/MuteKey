@@ -61,7 +61,7 @@ fun UsageTabContent(
 
     Box(
         modifier = modifier
-            .fillMaxWidth() // Changed from fillMaxSize() to avoid infinite height crash in scrollable containers
+            .fillMaxWidth()
             .background(LightBlue)
     ) {
         Column {

@@ -36,6 +36,7 @@ import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.util.noRippleClickable
 import java.time.format.TextStyle
 import com.bbm.applock.R
+import com.bbm.applock.presentation.analyticsModule.uiState.CalendarViewMode
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -45,8 +46,6 @@ fun UsageCalendar(
     onEvent: (AnalyticsEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-
-    val scope = rememberCoroutineScope()
     val currentDate = LocalDate.now()
 
     var isCalendarOpen by remember { mutableStateOf(true) }
@@ -59,7 +58,13 @@ fun UsageCalendar(
             .toLocalDate()
     )
 
-    var calendarView by remember { mutableStateOf(CalenderViewType.MONTHLY) }
+    val calendarView = remember(state.viewMode) {
+        if (state.viewMode == CalendarViewMode.MONTH) {
+            CalenderViewType.MONTHLY
+        } else {
+            CalenderViewType.WEEKLY
+        }
+    }
 
     val startMonth = YearMonth.now().minusMonths(12)
     val endMonth = YearMonth.now().plusMonths(12)
@@ -92,7 +97,7 @@ fun UsageCalendar(
             .wrapContentHeight()
     ) {
         Spacer(Modifier.height(12.dp))
-        Row(
+        /*Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
@@ -144,7 +149,7 @@ fun UsageCalendar(
                                 CalenderViewType.MONTHLY
                     }
             )
-        }
+        }*/
 
         Spacer(Modifier.height(8.dp))
 
