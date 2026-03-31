@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,9 +29,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.AquaBlueBorder
+import com.bbm.applock.ui.theme.AquaBlueLight
 import com.bbm.applock.ui.theme.LightBlue
+import com.bbm.applock.ui.theme.Red
 import com.bbm.applock.ui.theme.TextPrimary
+import com.bbm.applock.ui.theme.White
 import com.bbm.applock.ui.theme.WhiteColor
 import com.bbm.applock.util.noRippleClickable
 import com.kizitonwose.calendar.core.CalendarDay
@@ -42,50 +48,64 @@ import java.util.Locale
 @Composable
 fun MonthDayComponent(
     day: CalendarDay,
-    selectedDay: LocalDate,
-    currentDate: LocalDate,
+    selectedDay: LocalDate?,
+    currentDate: LocalDate?,
     firstDataDate: LocalDate,
     cellWidth: Dp,
     shouldShowIndicator: Boolean = true,
     onSelectedDayChanged: (LocalDate) -> Unit
 ) {
 
-    val isFutureDate = day.date.isAfter(currentDate)
+    val isFutureDate = currentDate?.let { day.date.isAfter(it) } ?: false
     val isSelectable = !isFutureDate && !day.date.isBefore(firstDataDate)
     val context = LocalContext.current
+    val isToday = currentDate != null && day.date == currentDate
+    val isSelected = selectedDay != null && selectedDay == day.date
+    val tappedAgain = remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .width(cellWidth)
             .padding(4.dp)
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selectedDay == day.date) AquaBlueBorder else LightBlue)
+            .clip(CircleShape)
+            .background(when {
+                tappedAgain.value -> AquaBlue
+                isSelected -> Red
+                else -> AquaBlue
+            })
             .border(
                 border = BorderStroke(
-                    if (currentDate != day.date) (-1).dp else 1.3.dp,
+                    if (isToday) 1.3.dp else 0.dp,
                     color = AquaBlueBorder
-                ),
-                shape = RoundedCornerShape(12.dp)
+                ), shape = CircleShape
             )
             .noRippleClickable {
-                if (isSelectable) {
-                    onSelectedDayChanged(day.date)
-                } else {
+                if (!isSelectable) {
                     Toast.makeText(context, "No data available for this date", Toast.LENGTH_SHORT).show()
+                } else {
+                    if (isSelected) {
+                        tappedAgain.value = !tappedAgain.value
+                        if (tappedAgain.value) {
+                            onSelectedDayChanged(day.date) // fetch weekly data
+                        }
+                    } else {
+                        tappedAgain.value = false
+                        onSelectedDayChanged(day.date) // fetch daily data
+                    }
                 }
             }
             .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        val color = if (selectedDay == day.date) WhiteColor else TextPrimary
+        val color = WhiteColor
         Text(
             text = day.date.dayOfMonth.toString(),
             style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.W400,
-                fontSize = 14.sp,
-                color = color
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = White
             ),
             textAlign = TextAlign.Center,
         )
@@ -95,7 +115,7 @@ fun MonthDayComponent(
                 modifier = Modifier
                     .size(4.dp)
                     .clip(CircleShape)
-                    .background(color)
+                    .background(White)
             )
     }
 }

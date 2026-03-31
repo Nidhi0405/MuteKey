@@ -52,11 +52,13 @@ fun UsageCalendar(
     if (!isCalendarOpen) return
     val today = LocalDate.now()
 
-    val selectedDay by rememberUpdatedState(
-        newValue = Instant.ofEpochMilli(state.selectedDateMillis)
+    val selectedDay: LocalDate? = state.selectedDateMillis?.let {
+        Instant.ofEpochMilli(it)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
-    )
+    }
+
+    val hasUserSelectedDate = state.selectedDateMillis != null
 
     val calendarView = remember(state.viewMode) {
         if (state.viewMode == CalendarViewMode.MONTH) {
@@ -66,19 +68,22 @@ fun UsageCalendar(
         }
     }
 
+    val fallbackDate = LocalDate.now()
+    val effectiveSelectedDay = selectedDay ?: fallbackDate
+
     val startMonth = YearMonth.now().minusMonths(12)
     val endMonth = YearMonth.now().plusMonths(12)
 
     val monthState = rememberCalendarState(
         startMonth = startMonth,
         endMonth = endMonth,
-        firstVisibleMonth = YearMonth.from(selectedDay)
+        firstVisibleMonth = YearMonth.from(effectiveSelectedDay)
     )
 
     val weekState = rememberWeekCalendarState(
-        startDate = selectedDay.minusMonths(12),
-        endDate = selectedDay.plusMonths(12),
-        firstVisibleWeekDate = selectedDay
+        startDate = effectiveSelectedDay.minusMonths(12),
+        endDate = effectiveSelectedDay.plusMonths(12),
+        firstVisibleWeekDate = effectiveSelectedDay
     )
 
     val currentMonthTitle = if (calendarView == CalenderViewType.WEEKLY) {
@@ -96,61 +101,6 @@ fun UsageCalendar(
         modifier = modifier
             .wrapContentHeight()
     ) {
-        Spacer(Modifier.height(12.dp))
-        /*Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-        ) {
-            Text(
-                text = currentMonthTitle.getDisplayName(
-                    TextStyle.FULL,
-                    Locale.getDefault()
-                ),
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontSize = 22.sp,
-                    color = TextSecondary
-                ),
-            )
-            Spacer(Modifier.weight(1f))
-
-            if (selectedDay != currentDate) {
-                Image(
-                    painter = painterResource(R.drawable.ic_refresh),
-                    contentDescription = "Jump to current date",
-                    modifier = Modifier
-                        .size(24.dp)
-                        .noRippleClickable {
-                            onEvent(
-                            AnalyticsEvent.OnDateSelected(
-                                Calendar.getInstance().apply {
-                                    set(today.year, today.monthValue - 1, today.dayOfMonth, 0, 0, 0)
-                                }
-                            ))
-                        }
-                )
-                Spacer(Modifier.width(8.dp))
-            }
-            Image(
-                painter = painterResource(
-                    if (calendarView == CalenderViewType.MONTHLY)
-                        R.drawable.ic_calender_month
-                    else
-                        R.drawable.ic_calender_week
-                ),
-                contentDescription = "Calender View Type",
-                modifier = Modifier
-                    .size(24.dp)
-                    .noRippleClickable {
-                        calendarView =
-                            if (calendarView == CalenderViewType.MONTHLY)
-                                CalenderViewType.WEEKLY
-                            else
-                                CalenderViewType.MONTHLY
-                    }
-            )
-        }*/
-
         Spacer(Modifier.height(8.dp))
 
         AnimatedVisibility(calendarView == CalenderViewType.MONTHLY) {
@@ -171,8 +121,8 @@ fun UsageCalendar(
                             day = day,
                             firstDataDate = firstDataDate,
                             cellWidth = cellWidth,
-                            selectedDay = selectedDay,
-                            currentDate = currentDate,
+                            selectedDay = if (hasUserSelectedDate) selectedDay else null,
+                            currentDate = if (hasUserSelectedDate) currentDate else null,
                             shouldShowIndicator = shouldShowIndicatorOnDay(day.date),
                             onSelectedDayChanged = { localDate ->
                                 onEvent(
@@ -209,8 +159,8 @@ fun UsageCalendar(
                             day = day,
                             cellWidth = cellWidth,
                             firstDataDate = firstDataDate,
-                            selectedDay = selectedDay,
-                            currentDate = currentDate,
+                            selectedDay = if (hasUserSelectedDate) selectedDay else null,
+                            currentDate = if (hasUserSelectedDate) currentDate else null,
                             shouldShowIndicator = shouldShowIndicatorOnDay(day.date),
                             onSelectedDayChanged = { localDate ->
                                 onEvent(

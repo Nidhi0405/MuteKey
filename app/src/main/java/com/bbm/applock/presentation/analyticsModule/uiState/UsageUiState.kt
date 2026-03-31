@@ -8,7 +8,7 @@ data class UsageUiState(
     val chartApps: List<AppUsageInfo> = emptyList(),
     val totalHours: Long = 0,
     val totalMinutes: Long = 0,
-    val selectedDateMillis: Long = 0L,
+    val selectedDateMillis: Long?,
     val viewMode: CalendarViewMode = CalendarViewMode.DAY,
     val emptyMessage: String = ""
 )

@@ -152,7 +152,7 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
 
     LaunchedEffect(selectedTab) {
         if (selectedTab == 1) {
-            vm.setViewMode(AnalyticsVm.CalendarViewMode.MONTH)
+            vm.setViewMode(AnalyticsVm.CalendarViewMode.WEEK)
             vm.syncUsageForSelectedDate()
         } else if (selectedTab == 0) {
             vm.setViewMode(AnalyticsVm.CalendarViewMode.DAY)
@@ -183,16 +183,24 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
         val headerDateText = if (selectedTab == 0) {
             SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(radarSelectedDateMillis))
         } else {
-            if (viewMode == AnalyticsVm.CalendarViewMode.MONTH) {
-                SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(visibleMonth.time)
-            } else {
-                SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(usageSelectedDateMillis))
+            usageSelectedDateMillis?.let { selectedMillis ->
+                SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(selectedMillis))
+            } ?: run {
+                SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date())
             }
         }
 
         if (selectedTab != 2) {
             AnalyticsHeader(title = headerTitle, headerDateText = headerDateText, onMonthClick = {
-                showCalendar = !showCalendar
+                if(selectedTab == 0){
+                    showCalendar = !showCalendar
+                } else if(selectedTab ==1){
+                vm.setViewMode(
+                    if (viewMode == AnalyticsVm.CalendarViewMode.WEEK)
+                        AnalyticsVm.CalendarViewMode.MONTH
+                    else
+                        AnalyticsVm.CalendarViewMode.WEEK
+                )}
             }, onPrevMonth = {
                 val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
                 vm.setVisibleMonth(newMonth)
@@ -285,7 +293,6 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                             "USAGE_CALENDAR_STATE",
                             "showCalendar=$showCalendar tab=$selectedTab mode=$viewMode"
                         )
-                        if (showCalendar) {
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -331,7 +338,7 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                                         }
                                     },
                                 )
-                            }
+
                         }
 
                         UsageTabContent(
@@ -614,7 +621,7 @@ fun Interactive12HrRadar(
             val isSelected = selectedRange?.contains(hour) == true
 
             val sliceColor = if (isSelected) {
-                AccentPink
+                AquaBlueLight
             } else {
                 lerp(LightBlue, Red, ratio)
             }

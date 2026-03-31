@@ -56,7 +56,15 @@ fun UsageTabContent(
     modifier: Modifier = Modifier
 ) {
     val selectedDate = remember(state.selectedDateMillis) {
-        Calendar.getInstance().apply { timeInMillis = state.selectedDateMillis }
+        Calendar.getInstance().apply {
+            timeInMillis = state.selectedDateMillis ?: System.currentTimeMillis()
+        }
+    }
+
+    val effectiveViewMode = if (state.selectedDateMillis == null) {
+        CalendarViewMode.MONTH // Show monthly usage by default
+    } else {
+        state.viewMode
     }
 
     Box(

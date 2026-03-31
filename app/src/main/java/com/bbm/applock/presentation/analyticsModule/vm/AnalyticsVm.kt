@@ -58,10 +58,7 @@ class AnalyticsVm @Inject constructor(
     private val _hourlyUsageRawMap = MutableStateFlow<Map<String, List<Long>>>(emptyMap())
     val hourlyUsageMap: StateFlow<Map<String, List<Long>>> = _hourlyUsageRawMap
 
-    // Define the MutableStateFlow for loading state
     private val _isLoading = MutableStateFlow(false)
-
-    // Expose the loading state as a public read-only StateFlow
     val isLoading: StateFlow<Boolean> = _isLoading
 
 
@@ -127,20 +124,8 @@ class AnalyticsVm @Inject constructor(
     private val _radarSelectedDateMillis = MutableStateFlow(System.currentTimeMillis())
     val radarSelectedDateMillis: StateFlow<Long> = _radarSelectedDateMillis
 
-    private val _usageSelectedDateMillis = MutableStateFlow(System.currentTimeMillis())
-    val usageSelectedDateMillis: StateFlow<Long> = _usageSelectedDateMillis
-
-    // Function to update the radar selected date
-    fun setRadarSelectedDate(millis: Long) {
-        _radarSelectedDateMillis.value = millis
-        syncRadarForSelectedDate() // This could refresh the usage data if needed
-    }
-
-    // Function to update the usage selected date
-    fun setUsageSelectedDate(millis: Long) {
-        _usageSelectedDateMillis.value = millis
-        syncUsageForSelectedDate() // Sync usage data based on new date
-    }
+    private val _usageSelectedDateMillis = MutableStateFlow<Long?>(null)
+    val usageSelectedDateMillis: StateFlow<Long?> = _usageSelectedDateMillis
 
     private val _selectedRadarData = MutableStateFlow<List<Long>?>(null)
     val selectedRadarData: StateFlow<List<Long>?> = _selectedRadarData
@@ -185,19 +170,27 @@ class AnalyticsVm @Inject constructor(
         }
 
         UsageUiState(
-            appUsageList = filteredApps,     // ✅ already processed
-            chartApps = topApps,             // ✅ for pie chart
+            appUsageList = filteredApps,
+            chartApps = topApps,
             totalHours = hours,
             totalMinutes = minutes,
             selectedDateMillis = dateMillis,
-            viewMode = (mode as AnalyticsVm.CalendarViewMode).toUi(),          // ✅ mapped (see below)
+            viewMode = mode.toUi(),
             emptyMessage = emptyMessage
         )
     }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = UsageUiState()
+            initialValue = UsageUiState(
+                appUsageList = emptyList(),
+                chartApps = emptyList(),
+                totalHours = 0,
+                totalMinutes = 0,
+                selectedDateMillis = null, // first load has no selected date
+                viewMode = CalendarViewMode.MONTH.toUi(), // or WEEK / MONTH default
+                emptyMessage = ""
+            )
         )
 
     fun syncTodayHourlyUsage() {
@@ -246,7 +239,6 @@ class AnalyticsVm @Inject constructor(
         val isSameDate = isSameDay(currentSelectedCal, date)
         _radarSelectedDateMillis.value = newMillis
         _viewMode.value = CalendarViewMode.DAY
-
         Log.d("VM", "Radar date updated: $date")
         syncRadarForSelectedDate()
     }
@@ -254,7 +246,7 @@ class AnalyticsVm @Inject constructor(
     fun onUsageDateTapped(date: Calendar) {
         val newMillis = date.timeInMillis
         val currentSelectedCal = Calendar.getInstance().apply {
-            timeInMillis = _usageSelectedDateMillis.value
+            _usageSelectedDateMillis.value?.let { timeInMillis = it }
         }
         val isSameDate = isSameDay(currentSelectedCal, date)
         _usageSelectedDateMillis.value = newMillis
@@ -268,12 +260,10 @@ class AnalyticsVm @Inject constructor(
 
     fun syncUsageForSelectedDate() {
         val calendar = Calendar.getInstance().apply {
-            timeInMillis = _usageSelectedDateMillis.value
+            _usageSelectedDateMillis.value?.let { timeInMillis = it }
         }
-
         val isToday =
             isSameDay(calendar, Calendar.getInstance()) && _viewMode.value == CalendarViewMode.DAY
-
         val (start, end) = when (_viewMode.value) {
             CalendarViewMode.DAY -> {
                 calendar.apply {
@@ -340,10 +330,8 @@ class AnalyticsVm @Inject constructor(
         val calendar = Calendar.getInstance().apply {
             timeInMillis = _radarSelectedDateMillis.value
         }
-
         val isToday =
             isSameDay(calendar, Calendar.getInstance()) && _viewMode.value == CalendarViewMode.DAY
-
         val (start, end) = when (_viewMode.value) {
             CalendarViewMode.DAY -> {
                 calendar.apply {
@@ -423,7 +411,6 @@ class AnalyticsVm @Inject constructor(
         }
 
         val startTime = calendar.timeInMillis
-
         calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
         calendar.set(Calendar.HOUR_OF_DAY, 23)
         calendar.set(Calendar.MINUTE, 59)
@@ -440,13 +427,10 @@ class AnalyticsVm @Inject constructor(
             val start = when (mode) {
                 "DAILY" ->
                     end - 24 * 60 * 60 * 1000L
-
                 "WEEKLY" ->
                     end - (7L * 24 * 60 * 60 * 1000L)
-
                 "MONTHLY" ->
                     end - (180L * 24 * 60 * 60 * 1000L)
-
                 else -> end
             }
             try {
@@ -456,10 +440,8 @@ class AnalyticsVm @Inject constructor(
                     "DAILY" -> hourlyMap
                     "WEEKLY" ->
                         aggregateHourlyToDays(hourlyMap, 7)
-
                     "MONTHLY" ->
                         aggregateHourlyToDays(hourlyMap, 30)
-
                     else -> hourlyMap
                 }
                 _hourlyUsageRawMap.value = processed
@@ -520,8 +502,7 @@ class AnalyticsVm @Inject constructor(
 
         when (usageMode) {
             "Daily" -> {
-                // Generate last 7 days including today
-                val dailyUsageMap = getAllDailyUsage(context) // Map<String, Map<Long, Long>>
+                val dailyUsageMap = getAllDailyUsage(context)
                 val today = Calendar.getInstance()
                 val last7DaysTimestamps = (0..6).map {
                     val cal = today.clone() as Calendar
@@ -533,14 +514,12 @@ class AnalyticsVm @Inject constructor(
                     cal.timeInMillis
                 }.reversed() // oldest first
 
-                // Labels for chart
-                val dateFormat = SimpleDateFormat("dd MMM", Locale.getDefault()) // Mon, Tue, etc.
+                val dateFormat = SimpleDateFormat("dd MMM", Locale.getDefault())
                 labels = last7DaysTimestamps.map { ts -> dateFormat.format(Date(ts)) }
 
-                // Align each app’s usage to these 7 days
                 series = dailyUsageMap.map { (pkg, usageMap) ->
                     val values = last7DaysTimestamps.map { dayTs ->
-                        (usageMap[dayTs] ?: 0L) / 60000f // convert ms -> minutes
+                        (usageMap[dayTs] ?: 0L) / 60000f
                     }
                     pkg to values
                 }
