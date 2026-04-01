@@ -102,6 +102,7 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     val visibleMonth by vm.visibleMonth.collectAsState()
     val selectedHourlyData by vm.combinedHourlyUsage.collectAsState()
     val selectedHourlyMap by vm.hourlyUsageMap.collectAsState()
+    val isTappedAgainUsage by vm.isTappedAgain.collectAsState()
 
     val series = chartData.second
 
@@ -184,9 +185,16 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
             SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(radarSelectedDateMillis))
         } else {
             usageSelectedDateMillis?.let { selectedMillis ->
-                SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(selectedMillis))
+                if (isTappedAgainUsage) {
+                    SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+                        .format(Date.from(visibleMonth.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant()))
+                } else {
+                    SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+                        .format(Date(selectedMillis))
+                }
             } ?: run {
-                SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date())
+                SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+                    .format(Date.from(visibleMonth.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant()))
             }
         }
 
@@ -202,10 +210,10 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                         AnalyticsVm.CalendarViewMode.WEEK
                 )}
             }, onPrevMonth = {
-                val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
+                val newMonth = visibleMonth.minusMonths(1)
                 vm.setVisibleMonth(newMonth)
             }, onNextMonth = {
-                val newMonth = (visibleMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                val newMonth = visibleMonth.minusMonths(1)
                 vm.setVisibleMonth(newMonth)
             })
         }
@@ -247,29 +255,23 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                                                 event.date
                                             )
 
-                                            AnalyticsEvent.OnPrevMonth -> vm.setVisibleMonth(
-                                                (vm.visibleMonth.value.clone() as Calendar).apply {
-                                                    add(
-                                                        Calendar.MONTH,
-                                                        -1
-                                                    )
-                                                }
-                                            )
+                                            AnalyticsEvent.OnPrevMonth -> {
+                                                val newMonth = visibleMonth.minusMonths(1)
+                                                vm.setVisibleMonth(newMonth)
+                                            }
 
-                                            AnalyticsEvent.OnNextMonth -> vm.setVisibleMonth(
-                                                (vm.visibleMonth.value.clone() as Calendar).apply {
-                                                    add(
-                                                        Calendar.MONTH,
-                                                        1
-                                                    )
-                                                }
-                                            )
+                                            AnalyticsEvent.OnNextMonth -> {
+                                                val newMonth = visibleMonth.plusMonths(1)
+                                                vm.setVisibleMonth(newMonth)
+                                            }
 
                                             is AnalyticsEvent.OnViewModeChanged -> vm.setViewMode(
                                                 event.viewMode
                                             )
                                         }
-                                    }
+                                    },
+                                    onMonthChanged = {newMonth ->
+                                        vm.setVisibleMonth(newMonth)}
                                 )
                             }
 
@@ -278,7 +280,8 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                                 Radar24HrScreen(
                                     hourlyData = radarData,
                                     hourlyUsageMap = radarMap,
-                                    selectedDateMillis = displayedDateMillis.value ?: actualSelectedDateMillis
+                                    selectedDateMillis = displayedDateMillis.value
+                                        ?: actualSelectedDateMillis
                                 )
                             }
                         }
@@ -293,51 +296,45 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                             "USAGE_CALENDAR_STATE",
                             "showCalendar=$showCalendar tab=$selectedTab mode=$viewMode"
                         )
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp)
-                                    .padding(top = 10.dp),
-                                shape = RoundedCornerShape(20.dp),
-                                color = White,
-                            ) {
-                                UsageCalendar(
-                                    state = CalendarUiState(
-                                        selectedDateMillis = usageSelectedDateMillis,
-                                        viewMode = viewMode.toUi(),
-                                        visibleMonth = visibleMonth
-                                    ),
-                                    firstDataDate = firstDataDate,
-                                    onEvent = { event ->
-                                        when (event) {
-                                            is AnalyticsEvent.OnDateSelected -> vm.onUsageDateTapped(
-                                                event.date
-                                            )
-
-                                            AnalyticsEvent.OnPrevMonth -> vm.setVisibleMonth(
-                                                (vm.visibleMonth.value.clone() as Calendar).apply {
-                                                    add(
-                                                        Calendar.MONTH,
-                                                        -1
-                                                    )
-                                                }
-                                            )
-
-                                            AnalyticsEvent.OnNextMonth -> vm.setVisibleMonth(
-                                                (vm.visibleMonth.value.clone() as Calendar).apply {
-                                                    add(
-                                                        Calendar.MONTH,
-                                                        1
-                                                    )
-                                                }
-                                            )
-
-                                            is AnalyticsEvent.OnViewModeChanged -> vm.setViewMode(
-                                                event.viewMode
-                                            )
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .padding(top = 10.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            color = White,
+                        ) {
+                            UsageCalendar(
+                                state = CalendarUiState(
+                                    selectedDateMillis = usageSelectedDateMillis,
+                                    viewMode = viewMode.toUi(),
+                                    visibleMonth = visibleMonth
+                                ),
+                                firstDataDate = firstDataDate,
+                                onEvent = { event ->
+                                    when (event) {
+                                        is AnalyticsEvent.OnDateSelected -> {
+                                            vm.onUsageDateTapped(event.date)
                                         }
-                                    },
-                                )
+
+                                        AnalyticsEvent.OnPrevMonth -> {
+                                            val newMonth = visibleMonth.minusMonths(1)
+                                            vm.setVisibleMonth(newMonth)
+                                        }
+
+                                        AnalyticsEvent.OnNextMonth -> {
+                                            val newMonth = visibleMonth.plusMonths(1)
+                                            vm.setVisibleMonth(newMonth)
+                                        }
+
+                                        is AnalyticsEvent.OnViewModeChanged -> vm.setViewMode(
+                                            event.viewMode
+                                        )
+                                    }
+                                },
+                                onMonthChanged = {newMonth ->
+                                    vm.setVisibleMonth(newMonth)}
+                            )
 
                         }
 
@@ -671,7 +668,11 @@ fun Interactive12HrRadar(
 
 @Composable
 fun RadarCenterContent(
-    totalMinutes: Long, selectedRange: IntRange?, isAM: Boolean, totalMinutesToday: Long? = null, selectedDateMillis: Long
+    totalMinutes: Long,
+    selectedRange: IntRange?,
+    isAM: Boolean,
+    totalMinutesToday: Long? = null,
+    selectedDateMillis: Long
 ) {
     val displayMinutes =
         if (selectedRange == null) totalMinutesToday ?: totalMinutes else totalMinutes

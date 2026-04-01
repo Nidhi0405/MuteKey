@@ -23,18 +23,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bbm.applock.ui.theme.ActiveGreen
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.AquaBlueBorder
 import com.bbm.applock.ui.theme.AquaBlueLight
 import com.bbm.applock.ui.theme.LightBlue
 import com.bbm.applock.ui.theme.Red
+import com.bbm.applock.ui.theme.SuccessGreen
 import com.bbm.applock.ui.theme.TextPrimary
+import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.ui.theme.White
 import com.bbm.applock.ui.theme.WhiteColor
 import com.bbm.applock.util.noRippleClickable
@@ -53,7 +57,7 @@ fun MonthDayComponent(
     firstDataDate: LocalDate,
     cellWidth: Dp,
     shouldShowIndicator: Boolean = true,
-    onSelectedDayChanged: (LocalDate) -> Unit
+    onSelectedDayChanged: (LocalDate, Boolean) -> Unit
 ) {
 
     val isFutureDate = currentDate?.let { day.date.isAfter(it) } ?: false
@@ -63,6 +67,12 @@ fun MonthDayComponent(
     val isSelected = selectedDay != null && selectedDay == day.date
     val tappedAgain = remember { mutableStateOf(false) }
 
+    val textColor = if (day.date.dayOfWeek == java.time.DayOfWeek.SUNDAY) {
+        SuccessGreen
+    } else {
+        AquaBlueBorder
+    }
+
     Column(
         modifier = Modifier
             .width(cellWidth)
@@ -70,32 +80,23 @@ fun MonthDayComponent(
             .aspectRatio(1f)
             .clip(CircleShape)
             .background(when {
-                tappedAgain.value -> AquaBlue
-                isSelected -> Red
-                else -> AquaBlue
+                tappedAgain.value -> Transparent
+                isSelected -> AquaBlue
+                else -> Transparent
             })
-            .border(
-                border = BorderStroke(
-                    if (isToday) 1.3.dp else 0.dp,
-                    color = AquaBlueBorder
-                ), shape = CircleShape
-            )
             .noRippleClickable {
                 if (!isSelectable) {
                     Toast.makeText(context, "No data available for this date", Toast.LENGTH_SHORT).show()
                 } else {
                     if (isSelected) {
                         tappedAgain.value = !tappedAgain.value
-                        if (tappedAgain.value) {
-                            onSelectedDayChanged(day.date) // fetch weekly data
-                        }
+                        onSelectedDayChanged(day.date, tappedAgain.value)
                     } else {
                         tappedAgain.value = false
-                        onSelectedDayChanged(day.date) // fetch daily data
+                        onSelectedDayChanged(day.date, false) // fetch daily data
                     }
                 }
-            }
-            .padding(vertical = 2.dp),
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -103,20 +104,20 @@ fun MonthDayComponent(
         Text(
             text = day.date.dayOfMonth.toString(),
             style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.W600,
                 fontSize = 16.sp,
-                color = White
+                color = if (isSelected) White else textColor
             ),
             textAlign = TextAlign.Center,
         )
 
-        if (shouldShowIndicator)
+        /*if (shouldShowIndicator)
             Box(
                 modifier = Modifier
                     .size(4.dp)
                     .clip(CircleShape)
-                    .background(White)
-            )
+                    .background(textColor)
+            )*/
     }
 }
 
@@ -124,14 +125,20 @@ fun MonthDayComponent(
 fun DaysOfWeekTitle(daysOfWeek: List<DayOfWeek>) {
     Row(modifier = Modifier.fillMaxWidth()) {
         for (dayOfWeek in daysOfWeek) {
+            val textColor = if (dayOfWeek == DayOfWeek.SUNDAY) {
+                SuccessGreen
+            } else {
+                TextSecondary
+            }
             Text(
                 text = dayOfWeek.getDisplayName(
-                    TextStyle.SHORT,
+                    TextStyle.NARROW_STANDALONE,
                     Locale.getDefault()
                 ),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.W600,
                     fontSize = 14.sp,
+                    color = textColor
                 ),
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,

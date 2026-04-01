@@ -62,7 +62,7 @@ fun UsageTabContent(
     }
 
     val effectiveViewMode = if (state.selectedDateMillis == null) {
-        CalendarViewMode.MONTH // Show monthly usage by default
+        CalendarViewMode.MONTH
     } else {
         state.viewMode
     }
@@ -80,7 +80,7 @@ fun UsageTabContent(
                 hours = state.totalHours,
                 minutes = state.totalMinutes,
                 selectedDate = selectedDate,
-                viewMode = state.viewMode,
+                viewMode = effectiveViewMode,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)

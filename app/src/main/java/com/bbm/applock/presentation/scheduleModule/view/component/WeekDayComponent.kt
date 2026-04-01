@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.sp
 import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.AquaBlueBorder
 import com.bbm.applock.ui.theme.AquaBlueLight
+import com.bbm.applock.ui.theme.LightBlue
 import com.bbm.applock.ui.theme.Red
+import com.bbm.applock.ui.theme.SuccessGreen
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.White
 import com.bbm.applock.util.dateFormatter
@@ -41,7 +43,7 @@ fun WeekDayComponent(
     selectedDay: LocalDate?,
     currentDate: LocalDate?,
     shouldShowIndicator: Boolean = false,
-    onSelectedDayChanged: (LocalDate) -> Unit
+    onSelectedDayChanged: (LocalDate, Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val isFutureDate = currentDate?.let { day.date.isAfter(it) } ?: false
@@ -49,6 +51,11 @@ fun WeekDayComponent(
     val isSelected = selectedDay != null && selectedDay == day.date
     val isToday = currentDate != null && day.date == currentDate
     val tappedAgain = remember { mutableStateOf(false) }
+    val textColor = if (day.date.dayOfWeek == java.time.DayOfWeek.SUNDAY) {
+        SuccessGreen  // Or any color you prefer for Sundays
+    } else {
+        AquaBlueBorder
+    }
 
     Column(
         modifier = Modifier
@@ -60,12 +67,10 @@ fun WeekDayComponent(
                 } else {
                     if (isSelected) {
                         tappedAgain.value = !tappedAgain.value
-                        if (tappedAgain.value) {
-                            onSelectedDayChanged(day.date)
-                        }
+                        onSelectedDayChanged(day.date, tappedAgain.value)
                     } else {
                         tappedAgain.value = false
-                        onSelectedDayChanged(day.date)
+                        onSelectedDayChanged(day.date, false)
                     }
                 }
             },
@@ -77,7 +82,7 @@ fun WeekDayComponent(
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.W500,
                 fontSize = 14.sp,
-                color = if (isSelected) AquaBlueBorder else TextPrimary
+                color = if (isSelected) AquaBlue else textColor
             ),
             textAlign = TextAlign.Center,
         )
@@ -88,9 +93,9 @@ fun WeekDayComponent(
                 .clip(CircleShape)
                 .background(
                     when {
-                        tappedAgain.value -> AquaBlue
+                        tappedAgain.value -> LightBlue
                         isSelected -> Red
-                        else -> AquaBlue
+                        else -> LightBlue
                     }
                 )
                 .border(
@@ -109,11 +114,11 @@ fun WeekDayComponent(
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = White
+                        color = if (isSelected && !tappedAgain.value) White else textColor
                     ),
                     textAlign = TextAlign.Center,
                 )
-                Spacer(Modifier.height(0.5.dp))
+                /*Spacer(Modifier.height(0.5.dp))
                 if (shouldShowIndicator) {
                     Box(
                         modifier = Modifier
@@ -123,7 +128,7 @@ fun WeekDayComponent(
                     )
                 } else {
                     Spacer(Modifier.height(4.dp))
-                }
+                }*/
             }
         }
     }
