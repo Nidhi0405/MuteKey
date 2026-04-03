@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -35,18 +36,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
+import coil3.ImageLoader
+import coil3.compose.rememberAsyncImagePainter
 import com.bbm.applock.presentation.analyticsModule.vm.AnalyticsVm
 import com.bbm.applock.ui.theme.AquaBlue
-import com.bbm.applock.util.getAppIconDrawable
-import com.bbm.applock.util.getAppNameFromPackage
+import com.bbm.applock.util.AppIcon
+import com.bbm.applock.util.loadAppPackageMetadata
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -82,9 +82,15 @@ import com.bbm.applock.ui.theme.Red
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.TextSecondary
 import com.bbm.applock.ui.theme.White
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.ZoneId
 import java.util.Date
+
+private val dayHeaderFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.getDefault())
+private val monthHeaderFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
 
 @Composable
 fun AnalyticsScreen(vm: AnalyticsVm) {
@@ -101,7 +107,6 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     )
     val visibleMonth by vm.visibleMonth.collectAsState()
     val selectedHourlyData by vm.combinedHourlyUsage.collectAsState()
-    val selectedHourlyMap by vm.hourlyUsageMap.collectAsState()
     val isTappedAgainUsage by vm.isTappedAgain.collectAsState()
 
     val series = chartData.second
@@ -110,14 +115,13 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     val radarSelectedDateMillis by vm.radarSelectedDateMillis.collectAsState()
     val usageSelectedDateMillis by vm.usageSelectedDateMillis.collectAsState()
     val context = LocalContext.current
-    val firstDataCalendar = remember {
-        vm.getStartDate(context)
+    val firstDataCalendar by produceState(initialValue = Calendar.getInstance(), context) {
+        value = withContext(Dispatchers.IO) {
+            vm.getStartDate(context)
+        }
     }
     val firstDataDate = firstDataCalendar.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
-
-
-    val actualSelectedDateMillis by vm.radarSelectedDateMillis.collectAsState()
-    val isDateSelected = Calendar.getInstance().apply { timeInMillis = actualSelectedDateMillis }
+    val isDateSelected = Calendar.getInstance().apply { timeInMillis = radarSelectedDateMillis }
         .let { selected ->
             val today = Calendar.getInstance()
             selected.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
@@ -128,16 +132,16 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
     val displayedRadarMap = remember { mutableStateOf<Map<String, List<Long>>?>(null) }
     val displayedDateMillis = remember { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(todayHourlyData, selectedHourlyData, todayHourlyMap, selectedHourlyMap) {
+    LaunchedEffect(todayHourlyData, selectedHourlyData, todayHourlyMap, hourlyUsageMap) {
         val radarData = if (isDateSelected) todayHourlyData else selectedHourlyData
-        val radarMap = if (isDateSelected) todayHourlyMap else selectedHourlyMap
+        val radarMap = if (isDateSelected) todayHourlyMap else hourlyUsageMap
 
         if ((radarData.isNotEmpty() || radarMap.isNotEmpty()) &&
             (displayedRadarData.value != radarData || displayedRadarMap.value != radarMap)
         ) {
             displayedRadarData.value = radarData
             displayedRadarMap.value = radarMap
-            displayedDateMillis.value = actualSelectedDateMillis
+            displayedDateMillis.value = radarSelectedDateMillis
         }
     }
 
@@ -181,20 +185,29 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
             else -> ""
         }
 
-        val headerDateText = if (selectedTab == 0) {
-            SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(radarSelectedDateMillis))
-        } else {
-            usageSelectedDateMillis?.let { selectedMillis ->
-                if (isTappedAgainUsage) {
-                    SimpleDateFormat("MMMM yyyy", Locale.getDefault())
-                        .format(Date.from(visibleMonth.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant()))
-                } else {
-                    SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-                        .format(Date(selectedMillis))
-                }
-            } ?: run {
-                SimpleDateFormat("MMMM yyyy", Locale.getDefault())
-                    .format(Date.from(visibleMonth.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant()))
+        val headerDateText = remember(
+            selectedTab,
+            radarSelectedDateMillis,
+            usageSelectedDateMillis,
+            isTappedAgainUsage,
+            visibleMonth
+        ) {
+            if (selectedTab == 0) {
+                Date(radarSelectedDateMillis).toInstant()
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                    .format(dayHeaderFormatter)
+            } else {
+                usageSelectedDateMillis?.let { selectedMillis ->
+                    if (isTappedAgainUsage) {
+                        visibleMonth.atDay(1).format(monthHeaderFormatter)
+                    } else {
+                        Date(selectedMillis).toInstant()
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                            .format(dayHeaderFormatter)
+                    }
+                } ?: visibleMonth.atDay(1).format(monthHeaderFormatter)
             }
         }
 
@@ -230,10 +243,6 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
-                        Log.d(
-                            "RADAR_CALENDAR_STATE",
-                            "showCalendar=$showCalendar tab=$selectedTab mode=$viewMode"
-                        )
                         if (showCalendar)
                             Surface(
                                 modifier = Modifier
@@ -281,7 +290,8 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                                     hourlyData = radarData,
                                     hourlyUsageMap = radarMap,
                                     selectedDateMillis = displayedDateMillis.value
-                                        ?: actualSelectedDateMillis
+                                        ?: radarSelectedDateMillis,
+                                    imageLoader = vm.imageLoader
                                 )
                             }
                         }
@@ -292,10 +302,6 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
-                        Log.d(
-                            "USAGE_CALENDAR_STATE",
-                            "showCalendar=$showCalendar tab=$selectedTab mode=$viewMode"
-                        )
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -340,6 +346,7 @@ fun AnalyticsScreen(vm: AnalyticsVm) {
 
                         UsageTabContent(
                             state = usageUiState,
+                            imageLoader = vm.imageLoader,
                             onRefresh = { vm.syncUsageForSelectedDate() }
                         )
                     }
@@ -451,7 +458,10 @@ fun TabSelector(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 
 @Composable
 fun Radar24HrScreen(
-    hourlyData: List<Long>, hourlyUsageMap: Map<String, List<Long>>, selectedDateMillis: Long
+    hourlyData: List<Long>,
+    hourlyUsageMap: Map<String, List<Long>>,
+    selectedDateMillis: Long,
+    imageLoader: ImageLoader
 ) {
     val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     var selectedStartHour by remember { mutableStateOf<Int?>(null) }
@@ -558,7 +568,10 @@ fun Radar24HrScreen(
         Spacer(Modifier.height(10.dp))
 
         FullAppUsageList(
-            hourlyUsageMap = hourlyUsageMap, selectedRange = selectedRange, isAM = showAM
+            hourlyUsageMap = hourlyUsageMap,
+            selectedRange = selectedRange,
+            isAM = showAM,
+            imageLoader = imageLoader
         )
     }
 }
@@ -680,8 +693,10 @@ fun RadarCenterContent(
     val minutes = displayMinutes % 60
 
     val formattedDate = remember(selectedDateMillis) {
-        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-            .format(Date(selectedDateMillis))
+        Date(selectedDateMillis).toInstant()
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .format(dayHeaderFormatter)
     }
 
     val title = if (selectedRange == null) {
@@ -722,27 +737,41 @@ private fun formatHour(hour: Int, isAM: Boolean): String {
 
 @Composable
 fun FullAppUsageList(
-    hourlyUsageMap: Map<String, List<Long>>, selectedRange: IntRange?, isAM: Boolean
+    hourlyUsageMap: Map<String, List<Long>>,
+    selectedRange: IntRange?,
+    isAM: Boolean,
+    imageLoader: ImageLoader
 ) {
     val context = LocalContext.current
-    val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
 
-    Log.d("FULL_LIST_DEBUG", "Selected Range: $selectedRange")
-
-    val appUsageList = remember(hourlyUsageMap, selectedRange, isAM) {
-        hourlyUsageMap.map { (packageName, usagePerHour) ->
-            val totalMillis = if (selectedRange == null) {
-                usagePerHour.take(24).sum()
-            } else {
-                selectedRange.sumOf { localHour ->
-                    val targetHour = if (isAM) localHour % 12 else (localHour % 12) + 12
-                    usagePerHour.getOrNull(targetHour) ?: 0L
+    val appUsageList by produceState(
+        initialValue = emptyList<Pair<String, Long>>(),
+        hourlyUsageMap,
+        selectedRange,
+        isAM
+    ) {
+        value = withContext(Dispatchers.Default) {
+            hourlyUsageMap.map { (packageName, usagePerHour) ->
+                val totalMillis = if (selectedRange == null) {
+                    usagePerHour.take(24).sum()
+                } else {
+                    selectedRange.sumOf { localHour ->
+                        val targetHour = if (isAM) localHour % 12 else (localHour % 12) + 12
+                        usagePerHour.getOrNull(targetHour) ?: 0L
+                    }
                 }
+                packageName to totalMillis
             }
-            packageName to totalMillis
+                .filter { it.second > 0L }
+                .sortedByDescending { it.second }
         }
-            .filter { it.second > 0L }
-            .sortedByDescending { it.second }
+    }
+    val packageMetadata by produceState(
+        initialValue = emptyMap(),
+        context,
+        appUsageList
+    ) {
+        value = loadAppPackageMetadata(context, imageLoader, appUsageList.map { it.first })
     }
 
     if (appUsageList.isEmpty()) {
@@ -777,22 +806,21 @@ fun FullAppUsageList(
             ) {
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-
-                    val icon = getAppIconDrawable(context, pkg)
-                    icon?.let {
-                        Image(
-                            bitmap = it.toBitmap().asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                        )
-                    }
+                    Image(
+                        painter = rememberAsyncImagePainter(
+                            model = AppIcon(pkg),
+                            imageLoader = imageLoader
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                    )
 
                     Spacer(Modifier.width(12.dp))
 
                     Text(
-                        text = getAppNameFromPackage(context, pkg),
+                        text = packageMetadata[pkg]?.label ?: "",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

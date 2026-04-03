@@ -10,9 +10,11 @@ import com.bbm.applock.BuildConfig
 import com.bbm.applock.hiltmodule.AppBlockAccessibilityModule
 import com.bbm.applock.presentation.BlockScreenActivity
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -20,29 +22,23 @@ import java.time.LocalTime
 
 class AppBlockAccessibilityService : AccessibilityService() {
     private val info = AccessibilityServiceInfo()
-    private val throttledInput = throttleStringInput { packageName ->
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-//                delay(300)
-                val rootPkg = rootInActiveWindow?.packageName?.toString().orEmpty()
-                if (packageName != rootPkg) return@launch
-                val isBlocked = isCurrentlyBlockedApp.invoke(
-                    packageName,
-                    LocalTime.now()
-                )
-                if (isBlocked) {
-                    withContext(Dispatchers.Main) {
-                        openBlockScreen(packageName)
-                    }
-                }
-            } catch (e: Exception) {
-                e.stackTraceToString().logE()
-            }
-        }
+    private val coroutineExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        throwable.stackTraceToString().logE()
     }
+    private val serviceScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Default + coroutineExceptionHandler)
+    private var pendingPackageCheck: Job? = null
+    private var lastProcessedPackageName: String? = null
 
     companion object {
         var instance: AppBlockAccessibilityService? = null
+        private const val PACKAGE_CHECK_DELAY_MS = 180L
+        val ignoredPackages = setOf(
+            "com.android.systemui",
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.apps.messaging",
+            BuildConfig.APPLICATION_ID
+        )
     }
 
     private val isCurrentlyBlockedApp: IsCurrentlyBlockedAppUseCase by lazy {
@@ -58,8 +54,26 @@ class AppBlockAccessibilityService : AccessibilityService() {
                 val packageName = rootWindow?.packageName?.toString().orEmpty()
 
                 if (!packageName.isValidPackage) return
+                if (packageName == lastProcessedPackageName) return
 
-                throttledInput.invoke(packageName)
+                pendingPackageCheck?.cancel()
+                pendingPackageCheck = serviceScope.launch {
+                    delay(PACKAGE_CHECK_DELAY_MS)
+                    val rootPkg = rootInActiveWindow?.packageName?.toString().orEmpty()
+                    if (packageName != rootPkg) return@launch
+
+                    val isBlocked = withContext(Dispatchers.IO) {
+                        isCurrentlyBlockedApp.invoke(packageName, LocalTime.now())
+                    }
+                    if (isBlocked) {
+                        lastProcessedPackageName = packageName
+                        withContext(Dispatchers.Main) {
+                            openBlockScreen(packageName)
+                        }
+                    } else if (lastProcessedPackageName == packageName) {
+                        lastProcessedPackageName = null
+                    }
+                }
             }
         } catch (e: Exception) {
             e.stackTraceToString().logE()
@@ -75,6 +89,7 @@ class AppBlockAccessibilityService : AccessibilityService() {
     }
 
     fun removeAppFromScreen() {
+        lastProcessedPackageName = null
         performGlobalAction(GLOBAL_ACTION_HOME) // Press home
     }
 
@@ -93,44 +108,24 @@ class AppBlockAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {
         "onInterrupt".logE()
+        pendingPackageCheck?.cancel()
         instance = null
     }
 
     override fun onDestroy() {
         "onDestroy".logE()
+        pendingPackageCheck?.cancel()
+        serviceScope.coroutineContext[Job]?.cancel()
         instance = null
         super.onDestroy()
     }
-
-
 }
 
 val String.isValidPackage: Boolean
     get() {
-        if (this in listOf(
-                "com.android.systemui",
-                "com.google.android.googlequicksearchbox",
-                "com.google.android.apps.messaging",
-                BuildConfig.APPLICATION_ID
-            )
-        ) {
+        if (this in AppBlockAccessibilityService.ignoredPackages) {
             return false
         }
         if (this.contains("launcher")) return false
         return true
     }
-
-fun throttleStringInput(
-    scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
-    delayMillis: Long = 300L,
-    action: (String) -> Unit
-): (String) -> Unit {
-    var job: Job? = null
-    return { input ->
-        job?.cancel()
-        job = scope.launch {
-            delay(delayMillis)
-            action.invoke(input)
-        }
-    }
-}

@@ -2,6 +2,7 @@ package com.bbm.applock.presentation.analyticsModule.view
 
 import android.content.Context
 import android.graphics.Color
+import coil3.ImageLoader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,9 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.drawable.toDrawable
-import coil3.compose.AsyncImage
+import coil3.compose.rememberAsyncImagePainter
 import com.applock.domain.model.AppUsageInfo
 import com.bbm.applock.presentation.analyticsModule.uiState.CalendarViewMode
 import com.bbm.applock.presentation.analyticsModule.uiState.UsageUiState
@@ -38,20 +39,27 @@ import com.bbm.applock.ui.theme.AquaBlue
 import com.bbm.applock.ui.theme.LightBlue
 import com.bbm.applock.ui.theme.TextPrimary
 import com.bbm.applock.ui.theme.White
+import com.bbm.applock.util.AppIcon
+import com.bbm.applock.util.loadAppPackageMetadata
 import com.bbm.applock.util.RoundedSlicesPieChartRenderer
-import com.bbm.applock.util.getAppIconDrawable
 import com.github.mikephil.charting.animation.Easing
 import com.github.mikephil.charting.charts.PieChart
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+private val usageDateFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault())
 
 @Composable
 fun UsageTabContent(
     state: UsageUiState,
+    imageLoader: ImageLoader,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -77,6 +85,7 @@ fun UsageTabContent(
 
             UsageSummaryCard(
                 topApps = state.chartApps,
+                imageLoader = imageLoader,
                 hours = state.totalHours,
                 minutes = state.totalMinutes,
                 selectedDate = selectedDate,
@@ -91,6 +100,7 @@ fun UsageTabContent(
             if (state.appUsageList.isNotEmpty()) {
                 AppUsageList(
                     topApps = state.appUsageList,
+                    imageLoader = imageLoader,
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
             } else {
@@ -118,12 +128,20 @@ fun EmptyState(message: String) {
 @Composable
 fun UsageSummaryCard(
     topApps: List<AppUsageInfo>,
+    imageLoader: ImageLoader,
     hours: Long,
     minutes: Long,
     modifier: Modifier = Modifier,
     selectedDate: Calendar,
     viewMode: CalendarViewMode
 ) {
+    val context = LocalContext.current
+    val pieData by produceState<PieData?>(initialValue = null, context, topApps) {
+        value = withContext(Dispatchers.IO) {
+            generatePieData(context, imageLoader, topApps)
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -153,12 +171,12 @@ fun UsageSummaryCard(
 
                         legend.isEnabled = false
                         renderer = RoundedSlicesPieChartRenderer(this, animator, viewPortHandler)
-                        data = generatePieData(ctx, topApps)
+                        data = pieData
                         animateY(1200, Easing.EaseInOutExpo)
                     }
                 },
                 update = { pieChart ->
-                    pieChart.data = generatePieData(pieChart.context, topApps)
+                    pieChart.data = pieData
                     pieChart.invalidate()
                 },
                 modifier = Modifier.fillMaxSize()
@@ -202,13 +220,16 @@ fun UsageSummaryCard(
 }
 
 fun formatDate(calendar: Calendar): String {
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-    return dateFormat.format(calendar.time)
+    return calendar.toInstant()
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+        .format(usageDateFormatter)
 }
 
 @Composable
 fun AppUsageList(
     topApps: List<AppUsageInfo>,
+    imageLoader: ImageLoader,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -220,10 +241,12 @@ fun AppUsageList(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                val context = LocalContext.current
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(
-                        model = getAppIconDrawable(context, app.packageName),
+                    androidx.compose.foundation.Image(
+                        painter = rememberAsyncImagePainter(
+                            model = AppIcon(app.packageName),
+                            imageLoader = imageLoader
+                        ),
                         contentDescription = null,
                         modifier = Modifier
                             .size(40.dp)
@@ -250,16 +273,19 @@ fun formatUsageTime(millis: Long): String {
     return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
-fun generatePieData(context: Context, apps: List<AppUsageInfo>): PieData {
+private suspend fun generatePieData(
+    context: Context,
+    imageLoader: ImageLoader,
+    apps: List<AppUsageInfo>
+): PieData {
+    val metadata = loadAppPackageMetadata(context, imageLoader, apps.map { it.packageName })
     val entries = apps.mapIndexed { index, app ->
         val adjusted = if (app.usageTimeInMillis < 10 * 60 * 1000L) {
             10 * 60 * 1000f
         } else app.usageTimeInMillis.toFloat()
 
         PieEntry(adjusted, app.name).apply {
-            icon = getAppIconDrawable(context, app.packageName)
-                ?.toBitmap(96, 96)
-                ?.toDrawable(context.resources)
+            icon = metadata[app.packageName]?.icon
         }
     }
 

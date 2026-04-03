@@ -26,15 +26,23 @@ import com.bbm.applock.presentation.navigation.NavigationGraph
 import com.bbm.applock.ui.theme.AppLockTheme
 import dagger.hilt.android.AndroidEntryPoint
 
+private val bottomNavItems = listOf(
+    BottomNavItem.Apps,
+    BottomNavItem.Schedule,
+    BottomNavItem.Analytics,
+    BottomNavItem.Profile
+)
+
+private val bottomNavRoutes = setOf(
+    MainScreens.InstalledAppListScreenRoute::class.qualifiedName,
+    MainScreens.ControlledAppListScreenRoute::class.qualifiedName,
+    MainScreens.ScheduleScreenRoute::class.qualifiedName,
+    MainScreens.AnalyticsScreenRoute::class.qualifiedName,
+    MainScreens.ProfileScreenRoute::class.qualifiedName
+)
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    val navItems = listOf(
-        BottomNavItem.Apps,
-        BottomNavItem.Schedule,
-        BottomNavItem.Analytics,
-        BottomNavItem.Profile
-    )
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -47,17 +55,10 @@ class MainActivity : ComponentActivity() {
                     bottomBar = {
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
                         val currentRoute = navBackStackEntry?.destination?.route
-                        if (currentRoute in listOf(
-                                MainScreens.InstalledAppListScreenRoute::class.qualifiedName,
-                                MainScreens.ControlledAppListScreenRoute::class.qualifiedName,
-                                MainScreens.ScheduleScreenRoute::class.qualifiedName,
-                                MainScreens.AnalyticsScreenRoute::class.qualifiedName,
-                                MainScreens.ProfileScreenRoute::class.qualifiedName
-                            )
-                        ) {
+                        if (currentRoute in bottomNavRoutes) {
                             BottomNavBar(
                                 navController = navController,
-                                items = navItems
+                                items = bottomNavItems
                             )
                         }
                     }

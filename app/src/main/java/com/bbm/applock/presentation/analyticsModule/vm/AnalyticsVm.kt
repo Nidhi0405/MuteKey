@@ -216,24 +216,16 @@ class AnalyticsVm @Inject constructor(
 
     fun syncAndGetInstalledApps(startTime: Long, endTime: Long, isTodayMap: Boolean = false) {
         viewModelScope.launch(dispatchers.io) {
+            _isLoading.value = true
             _state.emit(UiState.Loading)
             try {
                 val list = syncInstalledAppsUseCase.invoke(startTime, endTime)
                 _installedApps.value = list
                 val hourlyMap = getHourlyUsageMapUseCase.invoke(startTime, endTime)
-                /*if (isTodayMap) {
-                    _todayHourlyUsageMap.value = hourlyMap
-                } else {
-                    _hourlyUsageRawMap.value = hourlyMap
-                }*/
                 _hourlyUsageRawMap.value = hourlyMap
-                _todayHourlyUsageMap.value = hourlyMap
-                val appsTotal = list.sumOf { it.usageTimeInMillis } //sum of every app’s usage individually, sum of every app’s usage individually
-                val hourlyTotal = hourlyMap.values.flatten().sum() //sum of all hourly buckets, counting overlapping usage only once per hour,
-                val realTotal = hourlyMap.values.flatten().sum() //the actual device usage time without double-counting overlapping app usage
-                Log.d("REAL_USAGE_TOTAL", "Real Total Usage = ${realTotal / 60000} min")
-                Log.d("USAGE_TOTAL", "Apps Total (sum of all apps) = ${appsTotal / 60000} min")
-                Log.d("USAGE_TOTAL", "Hourly Total (sum per hour, overlapping counted once) = ${hourlyTotal / 60000} min")
+                if (isTodayMap) {
+                    _todayHourlyUsageMap.value = hourlyMap
+                }
 
                 _state.emit(UiState.Success(list, "Apps synced successfully"))
             } catch (e: Exception) {
